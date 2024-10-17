@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
+using DSharpPlus.SlashCommands;
 
 namespace Schedule_Poster
 {
@@ -16,6 +17,8 @@ namespace Schedule_Poster
         {
             DiscordConfiguration config = new DiscordConfiguration() { Token = Program.Token, Intents = DiscordIntents.AllUnprivileged};
             Client = new DiscordClient(config);
+            SlashCommandsExtension slash = Client.UseSlashCommands();
+            slash.RegisterCommands<SlashCommands>();
         }
 
         public async Task ModifyMessage(ulong channelID, ulong messageID, string newMessage)

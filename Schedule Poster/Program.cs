@@ -1,6 +1,8 @@
 ﻿using DSharpPlus;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Xml;
+using TwitchEventSubWebsocket;
 
 namespace Schedule_Poster
 {
@@ -9,24 +11,56 @@ namespace Schedule_Poster
         public static string Token = "";
         public static IDGroup Group = new IDGroup();
         public static readonly object saveLock = new object();
+        public static EventSubWebsocket eventSub;
+        public static DClient client;
 
         static async Task Main(string[] args)
         {
             GetIDs();
             GetCredentials();
-            DClient client = new DClient();
+            //Group.BroadcasterID = 764108031;
+            client = new DClient();
+            await client.Client.ConnectAsync();
+            eventSub = new EventSubWebsocket("wss://eventsub.wss.twitch.tv/ws", TwitchAPI.ClientID, TwitchAPI.AccessToken);
+            eventSub.OnConnected += EventSub_OnConnected;
+            eventSub.OnStreamOnline += EventSub_OnStreamOnline;
+            eventSub.OnStreamOffline += EventSub_OnStreamOffline;
             Thread.Sleep(1000);
-            List<ScheduleInformation> streams = await TwitchAPI.GetSchedule(Group.BroadcasterID.ToString(), 5);
+
+            await DoSchedule(true);
+            
+            await Task.Delay(-1);
+        }
+
+        public static async Task DoSchedule(bool skipCurrent = false)
+        {
+            StreamInformation? streamInformation = await TwitchAPI.GetStream(Group.BroadcasterID.ToString());
+            List<ScheduleInformation> streams = await TwitchAPI.GetSchedule(Group.BroadcasterID.ToString(), 5, DateTime.UtcNow, streamInformation, skipCurrent); //Hipbotnator: "764108031"
             string toSend = "";
-            for (int i = 0; i < streams.Count; i++) 
+            for (int i = 0; i < streams.Count; i++)
             {
                 toSend += streams[i].GameName + Environment.NewLine + streams[i].TimeCode;
-                if (i != streams.Count -1)
+                if (i != streams.Count - 1)
                     toSend += Environment.NewLine + "--------------------------------------" + Environment.NewLine;
             }
 
             await client.ModifyMessage(Group.ChannelID, Group.MessageID, toSend);
-            await Task.Delay(-1);
+        }
+
+        private static async void EventSub_OnStreamOffline(object? sender, TwitchEventSubWebsocket.Types.Event.StreamOfflineEventArgs e)
+        {
+            await DoSchedule(true);
+        }
+
+        private static async void EventSub_OnStreamOnline(object? sender, TwitchEventSubWebsocket.Types.Event.StreamOnlineEventArgs e)
+        {
+            await DoSchedule();
+        }
+
+        private static void EventSub_OnConnected(object? sender, TwitchEventSubWebsocket.Types.Event.ConnectedEventArgs e)
+        {
+            eventSub.Subscribe.SubscribeToStreamOnline(Group.BroadcasterID.ToString());
+            eventSub.Subscribe.SubscribeToStreamOffline(Group.BroadcasterID.ToString());
         }
 
         public static void SetMessageID(ulong messageID)

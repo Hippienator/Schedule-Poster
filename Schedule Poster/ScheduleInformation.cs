@@ -14,8 +14,8 @@ namespace Schedule_Poster
 
         public ScheduleInformation(string timeCode, string gameName)
         { 
-            this.TimeCode = timeCode; 
-            this.GameName = gameName; 
+            TimeCode = timeCode; 
+            GameName = gameName; 
         }
     }
 }
