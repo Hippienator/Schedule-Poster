@@ -150,7 +150,12 @@ namespace Schedule_Poster
         {
             lock (renewLock)
             {
-                
+                if (currentlyRenewing)
+                    return HttpStatusCode.TooManyRequests;
+                TimeSpan sinceLastRenew = DateTime.Now - lastRenewed;
+                if (sinceLastRenew.TotalSeconds < 60)
+                    return HttpStatusCode.TooManyRequests;
+                currentlyRenewing = true;
             }
 
             HttpStatusCode code = HttpStatusCode.RequestTimeout;
@@ -176,6 +181,7 @@ namespace Schedule_Poster
                     if (refresh != null)
                         RefreshToken = refresh;
                 }
+                currentlyRenewing = false;
             }
             return code;
         }
