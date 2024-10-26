@@ -139,8 +139,9 @@ namespace Schedule_Poster
                 }
                 else if (streamResponse.StatusCode == HttpStatusCode.Unauthorized)
                 {
-                    await RenewToken();
-                    StreamInformation streamInformation = await GetStream(channelID); 
+                    HttpStatusCode renew = await RenewToken();
+                    if (renew == HttpStatusCode.OK)
+                        return await GetStream(channelID); 
                 }
             }
             return null;
