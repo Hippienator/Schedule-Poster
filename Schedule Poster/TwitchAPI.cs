@@ -111,6 +111,17 @@ namespace Schedule_Poster
             return streams;
         }
 
+        public static async Task<HttpResponseMessage> ValidateToken()
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("Authorization", $"OAuth {AccessToken}");
+                HttpResponseMessage response = await client.GetAsync("https://id.twitch.tv/oauth2/validate");
+
+                return response;
+            }
+        }
+
         public static async Task<StreamInformation?> GetStream(string channelID)
         {
             using (HttpClient client = new HttpClient())

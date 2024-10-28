@@ -18,6 +18,7 @@ namespace Schedule_Poster
         {
             GetIDs();
             GetCredentials();
+            await TwitchAPI.ValidateToken();
             //Group.BroadcasterID = 764108031;
             client = new DClient();
             await client.Client.ConnectAsync();
