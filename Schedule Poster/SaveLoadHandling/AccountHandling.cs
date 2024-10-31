@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using System.Reflection.Metadata;
+using System.Net;
 
 namespace Schedule_Poster.SaveLoadHandling
 {
@@ -22,6 +23,12 @@ namespace Schedule_Poster.SaveLoadHandling
             GetEncryption();
             GetConstants();
             GetTokens();
+        }
+
+        public static void SaveTokens()
+        {
+            string toEncrypt = Program.Token + ";" + TwitchAPI.ClientID + ";" + TwitchAPI.ClientSecret;
+            EncryptFile(constantsFile, toEncrypt);
         }
 
         private static void GetTokens()
@@ -48,13 +55,9 @@ namespace Schedule_Poster.SaveLoadHandling
             }
 
             HttpResponseMessage response = TwitchAPI.ValidateToken().Result;
-            if (response.StatusCode == System.Net.HttpStatusCode.OK)
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
-
-            }
-            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                 
+                HttpStatusCode code = TwitchAPI.RenewToken().Result;
             }
 
         }

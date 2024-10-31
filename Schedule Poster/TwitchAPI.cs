@@ -192,6 +192,7 @@ namespace Schedule_Poster
                     string? refresh = (string?)result["refresh_token"];
                     if (refresh != null)
                         RefreshToken = refresh;
+                    SaveLoadHandling.AccountHandling.SaveTokens();
                 }
                 currentlyRenewing = false;
             }
