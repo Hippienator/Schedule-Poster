@@ -21,26 +21,26 @@ namespace Schedule_Poster
             slash.RegisterCommands<SlashCommands>();
         }
 
-        public async Task ModifyMessage(ulong channelID, ulong messageID, string newMessage)
+        public async Task ModifyMessage(IDGroup group, string newMessage)
         {
-            DiscordChannel channel = await Client.GetChannelAsync(channelID);
+            DiscordChannel channel = await Client.GetChannelAsync(group.ChannelID);
             if (channel != null)
             {
-                if (messageID != 0)
+                if (group.MessageID != 0)
                 {
-                    DiscordMessage message = await channel.GetMessageAsync(messageID);
+                    DiscordMessage message = await channel.GetMessageAsync(group.MessageID);
                     if (message != null)
                         await message.ModifyAsync(newMessage);
                     else
                     {
                         message = await channel.SendMessageAsync(newMessage);
-                        Program.SetMessageID(message.Id);
+                        Program.SetMessageID(message.Id, group);
                     }
                 }
                 else
                 {
                     DiscordMessage message = await channel.SendMessageAsync(newMessage);
-                    Program.SetMessageID(message.Id);
+                    Program.SetMessageID(message.Id, group);
                 }
             }
         }
