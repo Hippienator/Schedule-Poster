@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 
 namespace Schedule_Poster
 {
@@ -14,7 +15,10 @@ namespace Schedule_Poster
         public async Task DoTask(InteractionContext ctx)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
-            await Program.DoSchedule();
+            IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
+            if (group == null)
+                return;
+            await Program.DoSchedule(group);
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Schedule updated."));
         }
 
@@ -22,8 +26,33 @@ namespace Schedule_Poster
         public async Task DoTaskSkip(InteractionContext ctx)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
-            await Program.DoSchedule(true);
+            IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
+            if (group == null)
+                return;
+            await Program.DoSchedule(group, true);
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Schedule updated, with the currently scheduled stream skipped."));
+        }
+
+        [SlashCommand("SetScheduleChannel", "Sets this channel as the one to do the schedule in.", false)]
+        public async Task SetScheduleChannel(InteractionContext ctx)
+        {
+            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+            IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
+            if (group == null)
+                return;
+            group.ChannelID = ctx.Channel.Id;
+            group.MessageID = 0;
+            await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Channel {ctx.Channel.Mention} has been selected as the channel to post the schedule in."));
+        }
+
+        [SlashCommand("SetAnnouncementChannel", "Sets this channel as the channel used to post announcements about the bot in.", false)]
+        public async Task SetAnnouncementChannel(InteractionContext ctx)
+        {
+            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+            IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
+            if (group == null)
+                return;
+            group.AccouncementID = ctx.Channel.Id;
         }
     }
 }

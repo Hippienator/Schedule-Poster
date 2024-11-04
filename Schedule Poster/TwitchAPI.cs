@@ -194,6 +194,7 @@ namespace Schedule_Poster
                         RefreshToken = refresh;
                     SaveLoadHandling.AccountHandling.SaveTokens();
                 }
+                lastRenewed = DateTime.Now;
                 currentlyRenewing = false;
             }
             return code;
