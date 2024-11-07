@@ -38,7 +38,7 @@ namespace Schedule_Poster
         public static async Task DoSchedule(IDGroup group, bool skipCurrent = false)
         {
             StreamInformation? streamInformation = await TwitchAPI.GetStream(group.BroadcasterID.ToString());
-            List<ScheduleInformation> streams = await TwitchAPI.GetSchedule(group.BroadcasterID.ToString(), 5, DateTime.UtcNow, streamInformation, skipCurrent); //Hipbotnator: "764108031"
+            List<ScheduleInformation> streams = await TwitchAPI.GetSchedule(group.BroadcasterID.ToString(), group.NumberOfStreams, DateTime.UtcNow, streamInformation, skipCurrent); //Hipbotnator: "764108031"
             string toSend = "";
             for (int i = 0; i < streams.Count; i++)
             {

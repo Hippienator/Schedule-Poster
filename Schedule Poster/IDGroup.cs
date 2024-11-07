@@ -13,10 +13,12 @@ namespace Schedule_Poster
         public ulong MessageID { get; set; }
         public int BroadcasterID { get; set; }
         public ulong AccouncementID { get; set; }
+        public int NumberOfStreams { get; set; }
 
-        public IDGroup()
+        public IDGroup(ulong guildID)
         {
-
+            GuildID = guildID;
+            NumberOfStreams = 5;
         }
     }
 }
