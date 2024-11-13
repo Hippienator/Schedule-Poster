@@ -74,5 +74,9 @@ namespace Schedule_Poster
         }
 
         [SlashCommand("SetStreamerTwitch", "")]
+        public async Task SetStreamerTwitch(InteractionContext ctx)
+        {
+
+        }
     }
 }

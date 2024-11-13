@@ -122,6 +122,22 @@ namespace Schedule_Poster
             }
         }
 
+        public static async Task<int?> GetUserID(string name)
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("Client-ID", ClientID);
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {AccessToken}");
+                HttpResponseMessage response = await client.GetAsync($"https://api.twitch.tv/helix/users?login={name}");
+                string content = await response.Content.ReadAsStringAsync();
+                JObject jObject = JObject.Parse(content);
+                JObject? data = (JObject?)jObject["data"];
+                int? id = (int?)data?["id"];
+
+                return id;
+            }
+        }
+
         public static async Task<StreamInformation?> GetStream(string channelID)
         {
             using (HttpClient client = new HttpClient())
