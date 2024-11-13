@@ -129,12 +129,22 @@ namespace Schedule_Poster
                 client.DefaultRequestHeaders.Add("Client-ID", ClientID);
                 client.DefaultRequestHeaders.Add("Authorization", $"Bearer {AccessToken}");
                 HttpResponseMessage response = await client.GetAsync($"https://api.twitch.tv/helix/users?login={name}");
-                string content = await response.Content.ReadAsStringAsync();
-                JObject jObject = JObject.Parse(content);
-                JObject? data = (JObject?)jObject["data"];
-                int? id = (int?)data?["id"];
+                if (response.IsSuccessStatusCode)
+                {
+                    string content = await response.Content.ReadAsStringAsync();
+                    JObject jObject = JObject.Parse(content);
+                    JObject? data = (JObject?)jObject["data"];
+                    int? id = (int?)data?["id"];
 
-                return id;
+                    return id;
+                }
+                else if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    HttpStatusCode renew = await RenewToken();
+                    if (renew == HttpStatusCode.OK)
+                        return await GetUserID(name);
+                }
+                return null;
             }
         }
 

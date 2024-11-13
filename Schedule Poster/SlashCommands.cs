@@ -73,8 +73,8 @@ namespace Schedule_Poster
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"The number of streams to be shown has been set to {group.NumberOfStreams}"));
         }
 
-        [SlashCommand("SetStreamerTwitch", "")]
-        public async Task SetStreamerTwitch(InteractionContext ctx)
+        [SlashCommand("SetStreamerTwitch", "Sets which Twitch user to post the schedule from.")]
+        public async Task SetStreamerTwitch(InteractionContext ctx, [Option("name", "Gets the schedule from the twitch user with this twitch handle.")] string name)
         {
 
         }
