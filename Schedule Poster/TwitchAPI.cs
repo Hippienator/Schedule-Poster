@@ -30,43 +30,53 @@ namespace Schedule_Poster
                 client.DefaultRequestHeaders.Add("Client-ID", ClientID);
                 client.DefaultRequestHeaders.Add("Authorization", $"Bearer {AccessToken}");
 
-                string getScheduleUrl = $"https://api.twitch.tv/helix/schedule?broadcaster_id={channelID}&first={results}&start_time={XmlConvert.ToString(timeRequested,XmlDateTimeSerializationMode.Utc)}";
+                string getScheduleUrl = $"https://api.twitch.tv/helix/schedule?broadcaster_id={channelID}&first={results}&start_time={XmlConvert.ToString(timeRequested, XmlDateTimeSerializationMode.Utc)}";
                 HttpResponseMessage scheduleResponse = await client.GetAsync(getScheduleUrl);
-                string scheduleJson = await scheduleResponse.Content.ReadAsStringAsync();
-                JObject scheduleResult = JObject.Parse(scheduleJson);
-                if (scheduleResult != null)
+                if (scheduleResponse.IsSuccessStatusCode)
                 {
-                    JObject? data = (JObject?)scheduleResult["data"];
-                    if (data != null)
+                    string scheduleJson = await scheduleResponse.Content.ReadAsStringAsync();
+                    JObject scheduleResult = JObject.Parse(scheduleJson);
+                    if (scheduleResult != null)
                     {
-                        JArray? jArray = (JArray?)data["segments"];
-
-                        if (jArray != null)
+                        JObject? data = (JObject?)scheduleResult["data"];
+                        if (data != null)
                         {
-                            for (int i = 0; i < jArray.Count; i++)
+                            JArray? jArray = (JArray?)data["segments"];
+
+                            if (jArray != null)
                             {
-                                JObject? stream = (JObject?)jArray[i];
-                                string timeCode = "";
-                                DateTimeOffset time = (DateTimeOffset)stream["start_time"];
-                                if (i == 0)
+                                for (int i = 0; i < jArray.Count; i++)
                                 {
-                                    if (streamInformation != null)
+                                    JObject? stream = (JObject?)jArray[i];
+                                    string timeCode = "";
+                                    DateTimeOffset time = (DateTimeOffset)stream["start_time"];
+                                    if (i == 0)
                                     {
-                                        TimeSpan timeDifference = time - streamInformation.StartTime;
-                                        if (timeDifference.Hours >= 6)
+                                        if (streamInformation != null)
                                         {
-                                            streams.Add(new ScheduleInformation($"Live since <t:{streamInformation.StartTime.ToUnixTimeSeconds()}:R>", "Unscheduled stream"));
+                                            TimeSpan timeDifference = time - streamInformation.StartTime;
+                                            if (timeDifference.Hours >= 6)
+                                            {
+                                                streams.Add(new ScheduleInformation($"Live since <t:{streamInformation.StartTime.ToUnixTimeSeconds()}:R>", "Unscheduled stream"));
+                                                timeCode = $"<t:{time.ToUnixTimeSeconds()}:F>";
+                                                string? cancelled = (string?)stream["canceled_until"];
+                                                if (cancelled != null)
+                                                    timeCode = "~~" + timeCode + "~~ (Cancelled)";
+                                            }
+                                            else
+                                                timeCode = $"<t:{time.ToUnixTimeSeconds()}:F> - Live since <t:{streamInformation.StartTime.ToUnixTimeSeconds()}:R>";
+                                        }
+                                        else if (skipCurrent && time < DateTimeOffset.UtcNow)
+                                        {
+                                            skipFirst = true;
+                                        }
+                                        else
+                                        {
                                             timeCode = $"<t:{time.ToUnixTimeSeconds()}:F>";
                                             string? cancelled = (string?)stream["canceled_until"];
                                             if (cancelled != null)
                                                 timeCode = "~~" + timeCode + "~~ (Cancelled)";
                                         }
-                                        else
-                                            timeCode = $"<t:{time.ToUnixTimeSeconds()}:F> - Live since <t:{streamInformation.StartTime.ToUnixTimeSeconds()}:R>";
-                                    }
-                                    else if (skipCurrent && time < DateTimeOffset.UtcNow)
-                                    {
-                                        skipFirst = true;
                                     }
                                     else
                                     {
@@ -75,39 +85,36 @@ namespace Schedule_Poster
                                         if (cancelled != null)
                                             timeCode = "~~" + timeCode + "~~ (Cancelled)";
                                     }
+                                    string gameName = "Game to be announced";
+                                    if (stream["category"]?.HasValues ?? false)
+                                    {
+                                        JObject? game = (JObject?)stream["category"];
+                                        gameName = (string?)game?["name"] ?? "Game to be announced";
+                                    }
+                                    streams.Add(new ScheduleInformation(timeCode, gameName));
                                 }
-                                else
-                                {
-                                    timeCode = $"<t:{time.ToUnixTimeSeconds()}:F>";
-                                    string? cancelled = (string?)stream["canceled_until"];
-                                    if (cancelled != null)
-                                        timeCode = "~~" + timeCode + "~~ (Cancelled)";
-                                }
-                                string gameName = "Game to be announced";
-                                if (stream["category"]?.HasValues ?? false)
-                                {
-                                    JObject? game = (JObject?)stream["category"];
-                                    gameName = (string?)game?["name"] ?? "Game to be announced";
-                                }
-                                streams.Add(new ScheduleInformation(timeCode, gameName));
                             }
                         }
                     }
+
+                    if (skipCurrent)
+                    {
+                        if (skipFirst)
+                            streams.Remove(streams[0]);
+                        else
+                            streams.Remove(streams[streams.Count - 1]);
+                    }
+
+                    if (streamInformation != null && streams.Count > results)
+                        streams.Remove(streams[streams.Count - 1]);
+                }
+                else
+                {
+                    HttpStatusCode code = await RenewToken();
+                    if (code == HttpStatusCode.OK)
+                        return await GetSchedule(channelID, results, timeRequested, streamInformation, skipCurrent);
                 }
             }
-
-            if (skipCurrent)
-            {
-                if (skipFirst)
-                    streams.Remove(streams[0]);
-                else
-                    streams.Remove(streams[streams.Count - 1]);
-            }
-
-            if (streamInformation != null && streams.Count > results)
-                streams.Remove(streams[streams.Count - 1]);
-
-
             return streams;
         }
 

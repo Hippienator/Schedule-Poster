@@ -17,9 +17,16 @@ namespace Schedule_Poster
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
             if (group == null)
+            {
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("This Discord server is not setup."));
                 return;
-            await Program.DoSchedule(group);
-            await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Schedule updated."));
+            }
+            bool success = await Program.DoSchedule(group);
+            
+            if (success)
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Schedule updated."));
+            else
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Failed to update schedule."));
         }
 
         [SlashCommand("SkipCurrent", "Updates the schedule with the currently scheduled stream skipped.", false)]
@@ -28,9 +35,16 @@ namespace Schedule_Poster
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
             if (group == null)
+            {
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("This Discord server is not setup."));
                 return;
-            await Program.DoSchedule(group, true);
-            await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Schedule updated, with the currently scheduled stream skipped."));
+            }
+            bool success = await Program.DoSchedule(group, true);
+
+            if (success)
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Schedule updated, with the first currently scheduled stream skipped."));
+            else
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Failed to update schedule."));
         }
 
         [SlashCommand("SetScheduleChannel", "Sets this channel as the one to do the schedule in.", false)]
@@ -76,7 +90,18 @@ namespace Schedule_Poster
         [SlashCommand("SetStreamerTwitch", "Sets which Twitch user to post the schedule from.")]
         public async Task SetStreamerTwitch(InteractionContext ctx, [Option("name", "Gets the schedule from the twitch user with this twitch handle.")] string name)
         {
-
+            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+            IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
+            if (group == null)
+                group = new IDGroup(ctx.Guild.Id);
+            int? id = await TwitchAPI.GetUserID(name);
+            if (id == null)
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Could not find a user with the name {name}"));
+            else
+            {
+                group.BroadcasterID = id.Value;
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"This server will now display the schedule of the Twitch user {name}"));
+            }
         }
     }
 }

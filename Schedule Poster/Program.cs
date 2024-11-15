@@ -35,10 +35,14 @@ namespace Schedule_Poster
             await Task.Delay(-1);
         }
 
-        public static async Task DoSchedule(IDGroup group, bool skipCurrent = false)
+        public static async Task<bool> DoSchedule(IDGroup group, bool skipCurrent = false)
         {
+            if (group.ChannelID == 0 || group.BroadcasterID == 0)
+                return false;
             StreamInformation? streamInformation = await TwitchAPI.GetStream(group.BroadcasterID.ToString());
             List<ScheduleInformation> streams = await TwitchAPI.GetSchedule(group.BroadcasterID.ToString(), group.NumberOfStreams, DateTime.UtcNow, streamInformation, skipCurrent); //Hipbotnator: "764108031"
+            if (streams.Count == 0) 
+                return false;
             string toSend = "";
             for (int i = 0; i < streams.Count; i++)
             {
@@ -48,6 +52,7 @@ namespace Schedule_Poster
             }
 
             await client.ModifyMessage(group, toSend);
+            return true;
         }
 
         private static async void EventSub_OnStreamOffline(object? sender, TwitchEventSubWebsocket.Types.Event.StreamOfflineEventArgs e)
