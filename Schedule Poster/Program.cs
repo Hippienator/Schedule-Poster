@@ -13,11 +13,16 @@ namespace Schedule_Poster
         public static readonly object saveLock = new object();
         public static EventSubWebsocket eventSub;
         public static DClient client;
+        public static System.Timers.Timer timer;
 
         static async Task Main(string[] args)
         {
-            SaveLoadHandling.AccountHandling.StartUp();
-            GetIDs();
+            Groups.Add(new IDGroup(0) { BroadcasterID = 414859190, GuildID = 0 });
+            GetCredentials();
+            //SaveLoadHandling.AccountHandling.StartUp();
+            //GetIDs();
+            await TwitchAPI.GetSchedule(Groups[0].BroadcasterID.ToString(), 5, DateTime.Now);
+            await TwitchAPI.GetStream(Groups[0].BroadcasterID.ToString());
             await TwitchAPI.ValidateToken();
             client = new DClient();
             await client.Client.ConnectAsync();
@@ -27,12 +32,39 @@ namespace Schedule_Poster
             eventSub.OnStreamOffline += EventSub_OnStreamOffline;
             Thread.Sleep(1000);
 
+            await DoAllSubscribed();
+
+            timer = new System.Timers.Timer(UntilMidnight());
+            timer.AutoReset = false;
+            timer.Elapsed += async (s, e) => await Timer_Elapsed(s,e);
+            timer.Start();
+
+            await Task.Delay(-1);
+        }
+
+        private static async Task Timer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+        {
+            await DoAllSubscribed();
+            timer.Interval = UntilMidnight().TotalMilliseconds;
+            timer.Start();
+        }
+
+        public static TimeSpan UntilMidnight()
+        {
+
+            DateTime tomorrow = DateTime.UtcNow.AddDays(1);
+            DateTime nextMidnight = new DateTime(tomorrow.Year, tomorrow.Month, tomorrow.Day);
+            TimeSpan diff = nextMidnight - DateTime.UtcNow;
+            return diff;
+        }
+
+        public static async Task DoAllSubscribed()
+        {
             foreach (IDGroup group in Groups)
             {
                 await DoSchedule(group, true);
+                await Task.Delay(1000);
             }
-
-            await Task.Delay(-1);
         }
 
         public static async Task<bool> DoSchedule(IDGroup group, bool skipCurrent = false)

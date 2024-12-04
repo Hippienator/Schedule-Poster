@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Xml;
 
 namespace Schedule_Poster
@@ -18,6 +19,8 @@ namespace Schedule_Poster
         private static readonly object renewLock = new object();
         public static DateTime lastRenewed = DateTime.MinValue;
         private static bool currentlyRenewing = false;
+        public static System.Threading.RateLimiting.RateLimiter rateLimiter = new System.Threading.RateLimiting.TokenBucketRateLimiter(new System.Threading.RateLimiting.TokenBucketRateLimiterOptions() 
+        { TokenLimit = 800, AutoReplenishment = true, ReplenishmentPeriod = TimeSpan.FromSeconds(1), TokensPerPeriod = 13, QueueLimit = 800, QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst });
 
         public static async Task<List<ScheduleInformation>> GetSchedule(string channelID, int results, DateTime timeRequested, StreamInformation? streamInformation = null, bool skipCurrent = false)
         {
