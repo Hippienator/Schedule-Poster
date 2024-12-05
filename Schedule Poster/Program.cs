@@ -63,7 +63,7 @@ namespace Schedule_Poster
             foreach (IDGroup group in Groups)
             {
                 await DoSchedule(group, true);
-                await Task.Delay(1000);
+                await Task.Delay(500);
             }
         }
 
@@ -71,7 +71,13 @@ namespace Schedule_Poster
         {
             if (group.ChannelID == 0 || group.BroadcasterID == 0)
                 return false;
+            System.Threading.RateLimiting.RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync();
+            if (!lease.IsAcquired)
+                return false;
             StreamInformation? streamInformation = await TwitchAPI.GetStream(group.BroadcasterID.ToString());
+            lease = await TwitchAPI.rateLimiter.AcquireAsync();
+            if (!lease.IsAcquired)
+                return false;
             List<ScheduleInformation> streams = await TwitchAPI.GetSchedule(group.BroadcasterID.ToString(), group.NumberOfStreams, DateTime.UtcNow, streamInformation, skipCurrent); //Hipbotnator: "764108031"
             if (streams.Count == 0) 
                 return false;

@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿
 using System.Text;
-using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
-using System.Reflection.Metadata;
 using System.Net;
 
 namespace Schedule_Poster.SaveLoadHandling
@@ -127,7 +123,7 @@ namespace Schedule_Poster.SaveLoadHandling
             }
             else
             {
-                string loadedSalt = File.ReadAllText(filepath + "vrede");
+                string loadedSalt = File.ReadAllText(filepath + "vrede.enc");
                 string[] splitString = loadedSalt.Split(";");
                 byte[] salt = new byte[8];
                 for (int i = 0; i < splitString.Length; i++)

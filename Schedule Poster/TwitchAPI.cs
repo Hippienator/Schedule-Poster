@@ -20,7 +20,7 @@ namespace Schedule_Poster
         public static DateTime lastRenewed = DateTime.MinValue;
         private static bool currentlyRenewing = false;
         public static System.Threading.RateLimiting.RateLimiter rateLimiter = new System.Threading.RateLimiting.TokenBucketRateLimiter(new System.Threading.RateLimiting.TokenBucketRateLimiterOptions() 
-        { TokenLimit = 800, AutoReplenishment = true, ReplenishmentPeriod = TimeSpan.FromSeconds(1), TokensPerPeriod = 13, QueueLimit = 800, QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst });
+        { TokenLimit = 800, AutoReplenishment = true, ReplenishmentPeriod = TimeSpan.FromSeconds(3), TokensPerPeriod = 20, QueueLimit = 800, QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst });
 
         public static async Task<List<ScheduleInformation>> GetSchedule(string channelID, int results, DateTime timeRequested, StreamInformation? streamInformation = null, bool skipCurrent = false)
         {
@@ -134,6 +134,9 @@ namespace Schedule_Poster
 
         public static async Task<int?> GetUserID(string name)
         {
+            System.Threading.RateLimiting.RateLimitLease lease = await rateLimiter.AcquireAsync();
+            if (!lease.IsAcquired)
+                return null;
             using (HttpClient client = new HttpClient())
             {
                 client.DefaultRequestHeaders.Add("Client-ID", ClientID);
@@ -160,6 +163,9 @@ namespace Schedule_Poster
 
         public static async Task<StreamInformation?> GetStream(string channelID)
         {
+            System.Threading.RateLimiting.RateLimitLease lease = await rateLimiter.AcquireAsync();
+            if (!lease.IsAcquired)
+                return null;
             using (HttpClient client = new HttpClient())
             {
                 client.DefaultRequestHeaders.Add("Client-ID", ClientID);
