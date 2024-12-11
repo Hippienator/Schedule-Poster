@@ -19,6 +19,8 @@ namespace Schedule_Poster
             Client = new DiscordClient(config);
             SlashCommandsExtension slash = Client.UseSlashCommands();
             slash.RegisterCommands<SlashCommands>();
+            slash.RegisterCommands<AdminCommands>(Program.mainID.GuildID);
+
         }
 
         public async Task ModifyMessage(IDGroup group, string newMessage)

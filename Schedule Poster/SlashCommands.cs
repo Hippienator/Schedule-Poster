@@ -11,6 +11,26 @@ namespace Schedule_Poster
 {
     internal class SlashCommands : ApplicationCommandModule
     {
+        [SlashCommand("BugReport", "Sends a bug report.", false)]
+        public async Task BugReport(InteractionContext ctx, [Option("contact-allowed", "Sets whether I'm allowed to contact you for further information. True for yes, False for no.")] bool contactAllowed, [Option("text", "The text of the bug report")] string text)
+        {
+            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+            DiscordChannel channel = await Program.client.Client.GetChannelAsync(Program.mainID.BugChannelID);
+            DiscordUser user = await Program.client.Client.GetUserAsync(Program.mainID.AdminID);
+            if (channel != null)
+            {
+                string reply = "Thank you for your report, it has been successfully sent.";
+                if (contactAllowed)
+                {
+                    text += $" - Contact: {ctx.User.Username}";
+                    if (user != null)
+                        reply += $" You might be contacted by the user {user.Username} for further information.";
+                }
+                await channel.SendMessageAsync(text);
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent(reply));
+            }
+        }
+
         [SlashCommand("UpdateSchedule","Updates the schedule.", false)]
         public async Task DoTask(InteractionContext ctx)
         {

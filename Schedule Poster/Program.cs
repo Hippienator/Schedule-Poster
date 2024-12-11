@@ -14,13 +14,12 @@ namespace Schedule_Poster
         public static EventSubWebsocket eventSub;
         public static DClient client;
         public static System.Timers.Timer timer;
+        public static MainID mainID;
 
         static async Task Main(string[] args)
         {
-            Groups.Add(new IDGroup(0) { BroadcasterID = 414859190, GuildID = 0 });
-            GetCredentials();
-            //SaveLoadHandling.AccountHandling.StartUp();
-            //GetIDs();
+            GetIDs();
+            SaveLoadHandling.AccountHandling.StartUp();
             await TwitchAPI.GetSchedule(Groups[0].BroadcasterID.ToString(), 5, DateTime.Now);
             await TwitchAPI.GetStream(Groups[0].BroadcasterID.ToString());
             await TwitchAPI.ValidateToken();
@@ -31,8 +30,6 @@ namespace Schedule_Poster
             eventSub.OnStreamOnline += EventSub_OnStreamOnline;
             eventSub.OnStreamOffline += EventSub_OnStreamOffline;
             Thread.Sleep(1000);
-
-            await DoAllSubscribed();
 
             timer = new System.Timers.Timer(UntilMidnight());
             timer.AutoReset = false;
@@ -137,26 +134,24 @@ namespace Schedule_Poster
         {
             lock (saveLock) 
             {
-                //JObject json = JObject.Parse(File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + "\\ID.json"));
-                IDGroup[]? groups = JsonConvert.DeserializeObject<IDGroup[]>(File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + "\\ID.json"));
-                if (groups != null)
+                if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + "\\MainID.json"))
                 {
-                    foreach(IDGroup group in groups) 
+                    MainID? mainID = JsonConvert.DeserializeObject<MainID>(File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + "\\MainID.json"));
+                    if (mainID != null)
+                        Program.mainID = mainID;
+                }
+
+                if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + "\\ID.json"))
+                {
+                    IDGroup[]? groups = JsonConvert.DeserializeObject<IDGroup[]>(File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + "\\ID.json"));
+                    if (groups != null)
                     {
-                        Groups.Add(group);
+                        foreach (IDGroup group in groups)
+                        {
+                            Groups.Add(group);
+                        }
                     }
                 }
-            }
-        }
-
-        public static void GetCredentials()
-        {
-            Credentials? cred = JsonConvert.DeserializeObject<Credentials>(File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + "\\Cred.json"));
-            if (cred != null)
-            {
-                Token = cred.Token;
-                TwitchAPI.ClientID = cred.ClientID;
-                TwitchAPI.AccessToken = cred.AccessToken;
             }
         }
     }
