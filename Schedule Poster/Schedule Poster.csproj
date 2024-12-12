@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+	<AssemblyName>schedule-poster</AssemblyName>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Schedule_Poster</RootNamespace>
@@ -19,7 +20,7 @@
 
   <ItemGroup>
     <Compile Update="MainID.cs">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Compile>
     <Compile Update="Properties\Resources.Designer.cs">
       <DesignTime>True</DesignTime>

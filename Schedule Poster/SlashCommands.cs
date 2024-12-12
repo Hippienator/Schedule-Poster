@@ -73,9 +73,13 @@ namespace Schedule_Poster
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
             if (group == null)
+            {
                 group = new IDGroup(ctx.Guild.Id);
+                Program.Groups.Add(group);
+            }
             group.ChannelID = ctx.Channel.Id;
             group.MessageID = 0;
+            Program.SaveIDs();
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Channel {ctx.Channel.Mention} has been selected as the channel to post the schedule in."));
         }
 
@@ -85,41 +89,53 @@ namespace Schedule_Poster
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
             if (group == null)
+            {
                 group = new IDGroup(ctx.Guild.Id);
+                Program.Groups.Add(group);
+            }
             group.AccouncementID = ctx.Channel.Id;
+            Program.SaveIDs();
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Channel {ctx.Channel.Mention} has been selected as the channel to post announcements from the bot in."));
         }
 
-        [SlashCommand("ShownStreams", "Sets the amount of streams to be shown from the schedule.")]
+        [SlashCommand("ShownStreams", "Sets the amount of streams to be shown from the schedule.", false)]
         public async Task SetNumberOfStreams(InteractionContext ctx, [Option("number","The number of streams to be shown from the schedule. Maximum of 25.")] long number)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
             if (group == null)
+            {
                 group = new IDGroup(ctx.Guild.Id);
+                Program.Groups.Add(group);
+            }
             if (number < 1)
                 group.NumberOfStreams = 1;
             else if (number > 25)
                 group.NumberOfStreams = 25;
             else
                 group.NumberOfStreams = (int)number;
+            Program.SaveIDs();
 
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"The number of streams to be shown has been set to {group.NumberOfStreams}"));
         }
 
-        [SlashCommand("SetStreamerTwitch", "Sets which Twitch user to post the schedule from.")]
+        [SlashCommand("SetStreamerTwitch", "Sets which Twitch user to post the schedule from."), false]
         public async Task SetStreamerTwitch(InteractionContext ctx, [Option("name", "Gets the schedule from the twitch user with this twitch handle.")] string name)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
             if (group == null)
+            {
                 group = new IDGroup(ctx.Guild.Id);
-            int? id = await TwitchAPI.GetUserID(name);
+                Program.Groups.Add(group);
+            }
+            int? id = await TwitchAPI.GetUserID(name.ToLower());
             if (id == null)
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Could not find a user with the name {name}"));
             else
             {
                 group.BroadcasterID = id.Value;
+                Program.SaveIDs();
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"This server will now display the schedule of the Twitch user {name}"));
             }
         }

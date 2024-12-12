@@ -1,6 +1,7 @@
 ﻿using DSharpPlus;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Net;
 using System.Xml;
 using TwitchEventSubWebsocket;
 
@@ -18,11 +19,26 @@ namespace Schedule_Poster
 
         static async Task Main(string[] args)
         {
+            TwitchAPI.lastRenewed = DateTime.Now.AddMinutes(-2);
             GetIDs();
             SaveLoadHandling.AccountHandling.StartUp();
-            await TwitchAPI.GetSchedule(Groups[0].BroadcasterID.ToString(), 5, DateTime.Now);
-            await TwitchAPI.GetStream(Groups[0].BroadcasterID.ToString());
-            await TwitchAPI.ValidateToken();
+
+            HttpResponseMessage validation = await TwitchAPI.ValidateToken();
+            if (validation.IsSuccessStatusCode)
+                Console.WriteLine("Accesstoken validated");
+            else
+            {
+                Console.WriteLine("Accesstoken not working. Renewing");
+                HttpStatusCode statusCode = await TwitchAPI.RenewToken();
+                if (statusCode == HttpStatusCode.OK)
+                    Console.WriteLine("Successfully renewed");
+                else
+                {
+                    Console.WriteLine("Failed renewal");
+                    System.Environment.Exit(0);
+                }
+            }
+
             client = new DClient();
             await client.Client.ConnectAsync();
             eventSub = new EventSubWebsocket("wss://eventsub.wss.twitch.tv/ws", TwitchAPI.ClientID, TwitchAPI.AccessToken);
@@ -117,15 +133,20 @@ namespace Schedule_Poster
         {
             if (group != null)
             {
-                lock (saveLock)
+                group.MessageID = messageID;
+                SaveIDs();
+            }
+        }
+
+        public static void SaveIDs()
+        {
+            lock (saveLock)
+            {
+                using (StreamWriter file = File.CreateText(AppDomain.CurrentDomain.BaseDirectory + "ID.json"))
                 {
-                    group.MessageID = messageID;
-                    using (StreamWriter file = File.CreateText(AppDomain.CurrentDomain.BaseDirectory + "\\ID.json"))
-                    {
-                        JsonSerializer serializer = new JsonSerializer();
-                        IDGroup[] groups = Groups.ToArray();
-                        serializer.Serialize(file, groups);
-                    }
+                    JsonSerializer serializer = new JsonSerializer();
+                    IDGroup[] groups = Groups.ToArray();
+                    serializer.Serialize(file, groups);
                 }
             }
         }
@@ -134,16 +155,16 @@ namespace Schedule_Poster
         {
             lock (saveLock) 
             {
-                if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + "\\MainID.json"))
+                if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + "MainID.json"))
                 {
-                    MainID? mainID = JsonConvert.DeserializeObject<MainID>(File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + "\\MainID.json"));
+                    MainID? mainID = JsonConvert.DeserializeObject<MainID>(File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + "MainID.json"));
                     if (mainID != null)
                         Program.mainID = mainID;
                 }
 
-                if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + "\\ID.json"))
+                if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + "ID.json"))
                 {
-                    IDGroup[]? groups = JsonConvert.DeserializeObject<IDGroup[]>(File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + "\\ID.json"));
+                    IDGroup[]? groups = JsonConvert.DeserializeObject<IDGroup[]>(File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + "ID.json"));
                     if (groups != null)
                     {
                         foreach (IDGroup group in groups)

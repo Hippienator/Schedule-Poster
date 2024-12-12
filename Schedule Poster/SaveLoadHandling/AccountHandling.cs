@@ -29,7 +29,7 @@ namespace Schedule_Poster.SaveLoadHandling
 
         private static void GetTokens()
         {
-            if (File.Exists(filepath + constantsFile))
+            if (File.Exists(filepath + tokensFile))
             {
                 string decryptedStrings = DecryptFile(tokensFile);
                 string[] strings = decryptedStrings.Split(";");
@@ -46,8 +46,8 @@ namespace Schedule_Poster.SaveLoadHandling
                 TwitchAPI.RefreshToken = NewPassword();
                 Console.Clear();
 
-                string toEncrypt = Program.Token + ";" + TwitchAPI.ClientID + ";" + TwitchAPI.ClientSecret;
-                EncryptFile(constantsFile, toEncrypt);
+                string toEncrypt = TwitchAPI.AccessToken + ";" + TwitchAPI.RefreshToken;
+                EncryptFile(tokensFile, toEncrypt);
             }
 
             HttpResponseMessage response = TwitchAPI.ValidateToken().Result;

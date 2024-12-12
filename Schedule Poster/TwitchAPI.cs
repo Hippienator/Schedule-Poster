@@ -17,7 +17,7 @@ namespace Schedule_Poster
         public static string RefreshToken = string.Empty;
         public static string ClientSecret = string.Empty;
         private static readonly object renewLock = new object();
-        public static DateTime lastRenewed = DateTime.MinValue;
+        public static DateTime lastRenewed;
         private static bool currentlyRenewing = false;
         public static System.Threading.RateLimiting.RateLimiter rateLimiter = new System.Threading.RateLimiting.TokenBucketRateLimiter(new System.Threading.RateLimiting.TokenBucketRateLimiterOptions() 
         { TokenLimit = 800, AutoReplenishment = true, ReplenishmentPeriod = TimeSpan.FromSeconds(3), TokensPerPeriod = 20, QueueLimit = 800, QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst });
@@ -146,8 +146,9 @@ namespace Schedule_Poster
                 {
                     string content = await response.Content.ReadAsStringAsync();
                     JObject jObject = JObject.Parse(content);
-                    JObject? data = (JObject?)jObject["data"];
-                    int? id = (int?)data?["id"];
+                    JArray? data = (JArray?)jObject["data"];
+                    JObject? dataObject = (JObject?)data?[0];
+                    int? id = (int?)dataObject?["id"];
 
                     return id;
                 }
@@ -225,6 +226,7 @@ namespace Schedule_Poster
                 });
                 HttpResponseMessage response = await client.PostAsync("https://id.twitch.tv/oauth2/token", request);
                 code = response.StatusCode;
+                string test = await response.Content.ReadAsStringAsync();
                 if (code == HttpStatusCode.OK)
                 {
                     JObject result = JObject.Parse(await response.Content.ReadAsStringAsync());
