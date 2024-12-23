@@ -51,6 +51,11 @@ namespace TwitchEventSubWebsocket
 
         #region Events
         /// <summary>
+        /// Fires when the websocket disconnect.
+        /// </summary>
+        public event EventHandler<DisconnectionInfo> OnDisconnected;
+
+        /// <summary>
         /// Fires when the websocket receives the Welcome message. Remember to add scopes through the API or the connection will close.
         /// </summary>
         public event EventHandler<ConnectedEventArgs> OnConnected;
@@ -139,6 +144,7 @@ namespace TwitchEventSubWebsocket
         //Automatically reconnects the websocket if connection is lost, except if disconnected on purpose.
         private void WebsocketLostConnection(object sender, DisconnectionInfo info)
         {
+            OnDisconnected?.Invoke(this, info);
             MessageTimer.Stop();
             if (info.Type != DisconnectionType.ByUser)
                 Connect(OriginalURI);

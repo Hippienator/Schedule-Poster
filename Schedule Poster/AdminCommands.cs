@@ -30,5 +30,12 @@ namespace Schedule_Poster
 
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Announcement posted in {i} out of {Program.Groups.Count} servers."));
         }
+
+        [SlashCommand("TestCommand", "Just a test")]
+        public async Task TestCommand(InteractionContext ctx)
+        {
+            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+            await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Test."));
+        }
     }
 }

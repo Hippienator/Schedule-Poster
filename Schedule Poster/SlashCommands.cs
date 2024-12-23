@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
@@ -99,7 +100,7 @@ namespace Schedule_Poster
         }
 
         [SlashCommand("ShownStreams", "Sets the amount of streams to be shown from the schedule.", false)]
-        public async Task SetNumberOfStreams(InteractionContext ctx, [Option("number","The number of streams to be shown from the schedule. Maximum of 25.")] long number)
+        public async Task SetNumberOfStreams(InteractionContext ctx, [Option("number","The number of streams to be shown from the schedule. Maximum of 24.")] long number)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
@@ -110,8 +111,8 @@ namespace Schedule_Poster
             }
             if (number < 1)
                 group.NumberOfStreams = 1;
-            else if (number > 25)
-                group.NumberOfStreams = 25;
+            else if (number > 24)
+                group.NumberOfStreams = 24;
             else
                 group.NumberOfStreams = (int)number;
             Program.SaveIDs();
@@ -135,6 +136,9 @@ namespace Schedule_Poster
             else
             {
                 group.BroadcasterID = id.Value;
+                RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync(1);
+                if (lease.IsAcquired)
+                    Program.eventSub.Subscribe.SubscribeToStreamOnline(id.Value.ToString());
                 Program.SaveIDs();
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"This server will now display the schedule of the Twitch user {name}"));
             }

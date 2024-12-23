@@ -2,8 +2,10 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net;
+using System.Threading.RateLimiting;
 using System.Xml;
 using TwitchEventSubWebsocket;
+using Schedule_Poster.Logging;
 
 namespace Schedule_Poster
 {
@@ -19,33 +21,38 @@ namespace Schedule_Poster
 
         static async Task Main(string[] args)
         {
+            Logger.Initialize();
             TwitchAPI.lastRenewed = DateTime.Now.AddMinutes(-2);
             GetIDs();
             SaveLoadHandling.AccountHandling.StartUp();
+            Logger.Log("[Starting]IDs and credentials loaded.");
 
             HttpResponseMessage validation = await TwitchAPI.ValidateToken();
             if (validation.IsSuccessStatusCode)
-                Console.WriteLine("Accesstoken validated");
+                Logger.Log("[Starting]Accesstoken validated");
             else
             {
-                Console.WriteLine("Accesstoken not working. Renewing");
+                Logger.Log("[Starting][Critical]Accesstoken not working. Renewing");
                 HttpStatusCode statusCode = await TwitchAPI.RenewToken();
                 if (statusCode == HttpStatusCode.OK)
-                    Console.WriteLine("Successfully renewed");
+                    Logger.Log("[Starting]Successfully renewed");
                 else
                 {
-                    Console.WriteLine("Failed renewal");
+                    Logger.Log("[Starting][Critical]Failed renewal");
                     System.Environment.Exit(0);
                 }
             }
 
+            Logger.Log("[Starting]Starting Discord client.");
             client = new DClient();
             await client.Client.ConnectAsync();
+
+            Logger.Log("[Starting]Starting EventSocket.");
             eventSub = new EventSubWebsocket("wss://eventsub.wss.twitch.tv/ws", TwitchAPI.ClientID, TwitchAPI.AccessToken);
             eventSub.OnConnected += EventSub_OnConnected;
+            eventSub.OnDisconnected += EventSub_OnDisconnected;
             eventSub.OnStreamOnline += EventSub_OnStreamOnline;
             eventSub.OnStreamOffline += EventSub_OnStreamOffline;
-            Thread.Sleep(1000);
 
             timer = new System.Timers.Timer(UntilMidnight());
             timer.AutoReset = false;
@@ -55,8 +62,14 @@ namespace Schedule_Poster
             await Task.Delay(-1);
         }
 
+        private static void EventSub_OnDisconnected(object? sender, Websocket.Client.DisconnectionInfo e)
+        {
+            Logger.Log($"[Critical]Lost connection to EventSub. Reason: {e.CloseStatusDescription}");
+        }
+
         private static async Task Timer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
+            Logger.Log("[Info]Running midnight scheduled updates.");
             await DoAllSubscribed();
             timer.Interval = UntilMidnight().TotalMilliseconds;
             timer.Start();
@@ -75,13 +88,18 @@ namespace Schedule_Poster
         {
             foreach (IDGroup group in Groups)
             {
-                await DoSchedule(group, true);
+                bool success = await DoSchedule(group, true);
+                if (success)
+                    Logger.Log($"[Info]Successfully updated schedule for {group.BroadcasterID}");
+                else
+                    Logger.Log($"[Critical]Failed to update schedule for {group.BroadcasterID}");
                 await Task.Delay(500);
             }
         }
 
         public static async Task<bool> DoSchedule(IDGroup group, bool skipCurrent = false)
         {
+            Logger.Log($"[Info]Attempting to update schedule for {group.BroadcasterID}");
             if (group.ChannelID == 0 || group.BroadcasterID == 0)
                 return false;
             System.Threading.RateLimiting.RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync();
@@ -108,6 +126,7 @@ namespace Schedule_Poster
 
         private static async void EventSub_OnStreamOffline(object? sender, TwitchEventSubWebsocket.Types.Event.StreamOfflineEventArgs e)
         {
+            Logger.Log($"[Info]Streamer {e.Broadcaster.Displayname} started streaming.");
             IDGroup? group = Groups.Find(x => x.BroadcasterID.ToString() == e.Broadcaster.ID);
             if (group != null)
                 await DoSchedule(group, true);
@@ -115,17 +134,24 @@ namespace Schedule_Poster
 
         private static async void EventSub_OnStreamOnline(object? sender, TwitchEventSubWebsocket.Types.Event.StreamOnlineEventArgs e)
         {
+            Logger.Log($"[Info]Streamer {e.Broadcaster.Displayname} stopped streaming.");
             IDGroup? group = Groups.Find(x => x.BroadcasterID.ToString() == e.Broadcaster.ID);
             if (group != null)
                 await DoSchedule(group);
         }
 
-        private static void EventSub_OnConnected(object? sender, TwitchEventSubWebsocket.Types.Event.ConnectedEventArgs e)
+        private static async void EventSub_OnConnected(object? sender, TwitchEventSubWebsocket.Types.Event.ConnectedEventArgs e)
         {
+            Logger.Log($"[Info]Connected to Eventsub");
             foreach (IDGroup group in Groups)
             {
-                eventSub.Subscribe.SubscribeToStreamOnline(group.BroadcasterID.ToString());
-                eventSub.Subscribe.SubscribeToStreamOffline(group.BroadcasterID.ToString());
+                Logger.Log($"[Info]Subscribing to watch {group.BroadcasterID}");
+                RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync(1);
+                if (lease.IsAcquired)
+                    eventSub.Subscribe.SubscribeToStreamOnline(group.BroadcasterID.ToString());
+                lease = await TwitchAPI.rateLimiter.AcquireAsync(1);
+                if (lease.IsAcquired)
+                    eventSub.Subscribe.SubscribeToStreamOffline(group.BroadcasterID.ToString());
             }
         }
 
@@ -142,6 +168,7 @@ namespace Schedule_Poster
         {
             lock (saveLock)
             {
+                Logger.Log("[Info]Saving IDs");
                 using (StreamWriter file = File.CreateText(AppDomain.CurrentDomain.BaseDirectory + "ID.json"))
                 {
                     JsonSerializer serializer = new JsonSerializer();
