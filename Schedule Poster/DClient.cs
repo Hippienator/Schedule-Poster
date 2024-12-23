@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
+using Schedule_Poster.Logging;
 
 namespace Schedule_Poster
 {
@@ -20,7 +21,27 @@ namespace Schedule_Poster
             SlashCommandsExtension slash = Client.UseSlashCommands();
             slash.RegisterCommands<SlashCommands>();
             slash.RegisterCommands<AdminCommands>(Program.mainID.GuildID);
+            Client.SocketClosed += Client_SocketClosed;
+            Client.SocketErrored += Client_SocketErrored;
+            Client.Ready += Client_Ready;
+        }
 
+        private Task Client_Ready(DiscordClient sender, DSharpPlus.EventArgs.ReadyEventArgs args)
+        {
+            Logger.Log($"[Critical]DSharp socket connected and ready.");
+            return Task.CompletedTask;
+        }
+
+        private Task Client_SocketErrored(DiscordClient sender, DSharpPlus.EventArgs.SocketErrorEventArgs args)
+        {
+            Logger.Log($"[Critical]DSharp socket Errored. Reason: {args.Exception.Message}");
+            return Task.CompletedTask;
+        }
+
+        private Task Client_SocketClosed(DiscordClient sender, DSharpPlus.EventArgs.SocketCloseEventArgs args)
+        {
+            Logger.Log($"[Critical]DSharp socket closed. Reason: {args.CloseMessage}");
+            return Task.CompletedTask;
         }
 
         public async Task ModifyMessage(IDGroup group, string newMessage)
