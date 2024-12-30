@@ -24,11 +24,18 @@ namespace Schedule_Poster
             Client.SocketClosed += Client_SocketClosed;
             Client.SocketErrored += Client_SocketErrored;
             Client.Ready += Client_Ready;
+            Client.SocketOpened += Client_SocketOpened;
+        }
+
+        private Task Client_SocketOpened(DiscordClient sender, DSharpPlus.EventArgs.SocketEventArgs args)
+        {
+            Logger.Log($"[Info]DSharp socket opened.");
+            return Task.CompletedTask;
         }
 
         private Task Client_Ready(DiscordClient sender, DSharpPlus.EventArgs.ReadyEventArgs args)
         {
-            Logger.Log($"[Critical]DSharp socket connected and ready.");
+            Logger.Log($"[Starting]DSharp socket connected and ready.");
             return Task.CompletedTask;
         }
 

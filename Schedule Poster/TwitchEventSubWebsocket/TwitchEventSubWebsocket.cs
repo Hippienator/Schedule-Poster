@@ -22,7 +22,7 @@ namespace TwitchEventSubWebsocket
         public string? SessionID
         {
             get { return sessionID; }
-            set { if (Subscribe != null) Subscribe.WebsocketID = value; sessionID = value; }
+            set { sessionID = value; }
         }
 
         /// <summary>
@@ -189,7 +189,13 @@ namespace TwitchEventSubWebsocket
                     {
                         EventWebsocket.ReconnectTimeout = TimeSpan.FromSeconds((int)msg.Payload.Session["keepalive_timeout_seconds"]);
                         MessageTimer.Start();
-                        SessionID = (string)msg.Payload.Session["id"];
+                        string? tempString = (string?)msg.Payload.Session["id"];
+                        if (tempString != null)
+                        {
+                            Schedule_Poster.Logging.Logger.Log("[Info]tempString in EventSub was not null.");
+                            SessionID = tempString;
+                            Subscribe.WebsocketID = SessionID;
+                        }
                         OnConnected?.Invoke(this, new ConnectedEventArgs((string)msg.Payload.Session["id"], (int)msg.Payload.Session["keepalive_timeout_seconds"]));
                     }
                     break;

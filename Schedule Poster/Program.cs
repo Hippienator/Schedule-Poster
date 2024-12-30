@@ -126,7 +126,7 @@ namespace Schedule_Poster
 
         private static async void EventSub_OnStreamOffline(object? sender, TwitchEventSubWebsocket.Types.Event.StreamOfflineEventArgs e)
         {
-            Logger.Log($"[Info]Streamer {e.Broadcaster.Displayname} started streaming.");
+            Logger.Log($"[Info]Streamer {e.Broadcaster.Displayname} stopped streaming.");
             IDGroup? group = Groups.Find(x => x.BroadcasterID.ToString() == e.Broadcaster.ID);
             if (group != null)
                 await DoSchedule(group, true);
@@ -134,7 +134,7 @@ namespace Schedule_Poster
 
         private static async void EventSub_OnStreamOnline(object? sender, TwitchEventSubWebsocket.Types.Event.StreamOnlineEventArgs e)
         {
-            Logger.Log($"[Info]Streamer {e.Broadcaster.Displayname} stopped streaming.");
+            Logger.Log($"[Info]Streamer {e.Broadcaster.Displayname} started streaming.");
             IDGroup? group = Groups.Find(x => x.BroadcasterID.ToString() == e.Broadcaster.ID);
             if (group != null)
                 await DoSchedule(group);
@@ -142,7 +142,7 @@ namespace Schedule_Poster
 
         private static async void EventSub_OnConnected(object? sender, TwitchEventSubWebsocket.Types.Event.ConnectedEventArgs e)
         {
-            Logger.Log($"[Info]Connected to Eventsub");
+            Logger.Log($"[Info]Connected to Eventsub. Websocket ID: {e.ID}.");
             foreach (IDGroup group in Groups)
             {
                 Logger.Log($"[Info]Subscribing to watch {group.BroadcasterID}");
