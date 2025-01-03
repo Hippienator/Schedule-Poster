@@ -39,6 +39,8 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
 
                 var response = await client.PostAsync(setSubscriptionUrl, new StringContent(paramters, Encoding.UTF8, "application/json"));
 
+                Schedule_Poster.Logging.Logger.Log($"[Info]Response on subscribe attempt: {response.StatusCode} - {response.ReasonPhrase}");
+
                 return response.IsSuccessStatusCode;
             }
         }
@@ -84,7 +86,9 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
             SubParameters json = new SubParameters();
             json.type = "stream.online";
             json.version = "1";
+            Schedule_Poster.Logging.Logger.Log($"[Info]TwitchEventSocket using websocket ID: {WebsocketID}");
             json.transport.Add("session_id", WebsocketID);
+            Schedule_Poster.Logging.Logger.Log($"[Info]TwitchEventSocket using broadcaster ID: {broadcasterID}");
             json.condition.Add("broadcaster_user_id", broadcasterID);
 
             string parameters = JsonConvert.SerializeObject(json);
