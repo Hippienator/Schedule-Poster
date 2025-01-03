@@ -192,7 +192,7 @@ namespace TwitchEventSubWebsocket
                         string? tempString = (string?)msg.Payload.Session["id"];
                         if (tempString != null)
                         {
-                            Schedule_Poster.Logging.Logger.Log("[Info]tempString in EventSub was not null.");
+                            Schedule_Poster.Logging.Logger.Log($"[Info]Received websocket id: {tempString}.");
                             SessionID = tempString;
                             Subscribe.WebsocketID = SessionID;
                         }

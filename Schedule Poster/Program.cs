@@ -147,11 +147,16 @@ namespace Schedule_Poster
             {
                 Logger.Log($"[Info]Subscribing to watch {group.BroadcasterID}");
                 RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync(1);
+                bool successfulSub = false;
                 if (lease.IsAcquired)
-                    eventSub.Subscribe.SubscribeToStreamOnline(group.BroadcasterID.ToString());
+                    successfulSub = eventSub.Subscribe.SubscribeToStreamOnline(group.BroadcasterID.ToString());
                 lease = await TwitchAPI.rateLimiter.AcquireAsync(1);
                 if (lease.IsAcquired)
-                    eventSub.Subscribe.SubscribeToStreamOffline(group.BroadcasterID.ToString());
+                    successfulSub &= eventSub.Subscribe.SubscribeToStreamOffline(group.BroadcasterID.ToString());
+                if (successfulSub)
+                    Logger.Log($"[Info]Successfully subbed to monitor {group.BroadcasterID}");
+                else
+                    Logger.Log($"[Info]Failed to sub to monitor {group.BroadcasterID}");
             }
         }
 
