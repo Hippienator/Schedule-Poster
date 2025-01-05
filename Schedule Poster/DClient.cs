@@ -13,6 +13,7 @@ namespace Schedule_Poster
     internal class DClient
     {
         public DiscordClient Client;
+        public bool zombied = false;
 
         public DClient()
         {
@@ -25,6 +26,17 @@ namespace Schedule_Poster
             Client.SocketErrored += Client_SocketErrored;
             Client.Ready += Client_Ready;
             Client.SocketOpened += Client_SocketOpened;
+            Client.Zombied += Client_Zombied;
+        }
+
+        private Task Client_Zombied(DiscordClient sender, DSharpPlus.EventArgs.ZombiedEventArgs args)
+        {
+            if (zombied)
+            {
+                Logger.Log("[Critical]DSharp client zombiefied 5 times, starting reconnection timer.");
+                Program.reconnectionTimer.Start();
+            }
+            return Task.CompletedTask;
         }
 
         private Task Client_SocketOpened(DiscordClient sender, DSharpPlus.EventArgs.SocketEventArgs args)

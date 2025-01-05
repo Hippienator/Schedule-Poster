@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Newtonsoft.Json;
+using Schedule_Poster;
 
 
 namespace TwitchEventSubWebsocket.SubcriptionHandling
@@ -23,10 +24,16 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
             AccessToken = accessToken;
         }
 
+        public void UpdateToken(string accessToken)
+        {
+            AccessToken = accessToken;
+        }
+
         private async Task<bool> Subscribe(string paramters, bool TwitchCLI)
         {
             using (HttpClient client = new HttpClient())
             {
+
                 client.DefaultRequestHeaders.Add("Client-ID", ClientID);
                 client.DefaultRequestHeaders.Add("Authorization", $"Bearer {AccessToken}");
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -38,8 +45,6 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
                     setSubscriptionUrl = "https://api.twitch.tv/helix/eventsub/subscriptions";
 
                 var response = await client.PostAsync(setSubscriptionUrl, new StringContent(paramters, Encoding.UTF8, "application/json"));
-
-                Schedule_Poster.Logging.Logger.Log($"[Info]Response on subscribe attempt: {response.StatusCode} - {response.ReasonPhrase}");
 
                 return response.IsSuccessStatusCode;
             }
@@ -86,9 +91,7 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
             SubParameters json = new SubParameters();
             json.type = "stream.online";
             json.version = "1";
-            Schedule_Poster.Logging.Logger.Log($"[Info]TwitchEventSocket using websocket ID: {WebsocketID}");
             json.transport.Add("session_id", WebsocketID);
-            Schedule_Poster.Logging.Logger.Log($"[Info]TwitchEventSocket using broadcaster ID: {broadcasterID}");
             json.condition.Add("broadcaster_user_id", broadcasterID);
 
             string parameters = JsonConvert.SerializeObject(json);

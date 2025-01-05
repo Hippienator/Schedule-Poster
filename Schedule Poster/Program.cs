@@ -6,6 +6,8 @@ using System.Threading.RateLimiting;
 using System.Xml;
 using TwitchEventSubWebsocket;
 using Schedule_Poster.Logging;
+using Websocket.Client;
+using System.Net.NetworkInformation;
 
 namespace Schedule_Poster
 {
@@ -16,7 +18,8 @@ namespace Schedule_Poster
         public static readonly object saveLock = new object();
         public static EventSubWebsocket eventSub;
         public static DClient client;
-        public static System.Timers.Timer timer;
+        public static System.Timers.Timer midnightTimer;
+        public static System.Timers.Timer reconnectionTimer = new System.Timers.Timer {Interval = 30000, AutoReset = false};
         public static MainID mainID;
 
         static async Task Main(string[] args)
@@ -48,18 +51,55 @@ namespace Schedule_Poster
             await client.Client.ConnectAsync();
 
             Logger.Log("[Starting]Starting EventSocket.");
+            OpenEventSub();
+
+            midnightTimer = new System.Timers.Timer(UntilMidnight());
+            midnightTimer.AutoReset = false;
+            midnightTimer.Elapsed += async (s, e) => await Timer_Elapsed(s,e);
+            midnightTimer.Start();
+
+            reconnectionTimer.Elapsed += ReconnectionTimer_Elapsed;
+
+            await Task.Delay(-1);
+        }
+
+        private static void OpenEventSub()
+        {
             eventSub = new EventSubWebsocket("wss://eventsub.wss.twitch.tv/ws", TwitchAPI.ClientID, TwitchAPI.AccessToken);
             eventSub.OnConnected += EventSub_OnConnected;
             eventSub.OnDisconnected += EventSub_OnDisconnected;
             eventSub.OnStreamOnline += EventSub_OnStreamOnline;
             eventSub.OnStreamOffline += EventSub_OnStreamOffline;
+        }
 
-            timer = new System.Timers.Timer(UntilMidnight());
-            timer.AutoReset = false;
-            timer.Elapsed += async (s, e) => await Timer_Elapsed(s,e);
-            timer.Start();
+        private static async void ReconnectionTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (CheckInternetConnectivity())
+            {
+                Logger.Log("[Info]Internet connection is back online.");
+                OpenEventSub();
+                await client.Client.ReconnectAsync();
+                client.zombied = true;
+                reconnectionTimer.Dispose();
+            }
+            else
+                reconnectionTimer.Start();
+        }
 
-            await Task.Delay(-1);
+        static bool CheckInternetConnectivity()
+        {
+            try
+            {
+                using (var ping = new Ping())
+                {
+                    PingReply reply = ping.Send("8.8.8.8", 2000); // Google's public DNS
+                    return reply.Status == IPStatus.Success;
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static void EventSub_OnDisconnected(object? sender, Websocket.Client.DisconnectionInfo e)
@@ -71,8 +111,8 @@ namespace Schedule_Poster
         {
             Logger.Log("[Info]Running midnight scheduled updates.");
             await DoAllSubscribed();
-            timer.Interval = UntilMidnight().TotalMilliseconds;
-            timer.Start();
+            midnightTimer.Interval = UntilMidnight().TotalMilliseconds;
+            midnightTimer.Start();
         }
 
         public static TimeSpan UntilMidnight()

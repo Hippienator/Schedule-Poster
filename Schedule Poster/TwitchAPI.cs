@@ -237,6 +237,8 @@ namespace Schedule_Poster
                     if (refresh != null)
                         RefreshToken = refresh;
                     SaveLoadHandling.AccountHandling.SaveTokens();
+                    if (Program.eventSub?.Subscribe != null)
+                        Program.eventSub.Subscribe.UpdateToken(AccessToken);
                 }
                 lastRenewed = DateTime.Now;
                 currentlyRenewing = false;
