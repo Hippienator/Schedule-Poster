@@ -35,13 +35,13 @@ namespace Schedule_Poster
                 Logger.Log("[Starting]Accesstoken validated");
             else
             {
-                Logger.Log("[Starting][Critical]Accesstoken not working. Renewing");
+                Logger.Log("[Starting][Critical]Accesstoken not working. Renewing.");
                 HttpStatusCode statusCode = await TwitchAPI.RenewToken();
                 if (statusCode == HttpStatusCode.OK)
-                    Logger.Log("[Starting]Successfully renewed");
+                    Logger.Log("[Starting]Successfully renewed.");
                 else
                 {
-                    Logger.Log("[Starting][Critical]Failed renewal");
+                    Logger.Log("[Starting][Critical]Failed renewal. Closing program.");
                     System.Environment.Exit(0);
                 }
             }
@@ -70,17 +70,39 @@ namespace Schedule_Poster
             eventSub.OnDisconnected += EventSub_OnDisconnected;
             eventSub.OnStreamOnline += EventSub_OnStreamOnline;
             eventSub.OnStreamOffline += EventSub_OnStreamOffline;
+            eventSub.Subscribe.OnAuthorizationFailed += Subscribe_OnAuthorizationFailed;
+        }
+
+        private static async void Subscribe_OnAuthorizationFailed(object? sender, TwitchEventSubWebsocket.SubcriptionHandling.AuthorizationFailedEventArgs e)
+        {
+            Logger.Log("[Warning]EventSub's subscription handler had an unauthorized reply.");
+            HttpResponseMessage validation = await TwitchAPI.ValidateToken();
+            if (validation.IsSuccessStatusCode)
+                Logger.Log("[Info]Accesstoken validated");
+            else
+            {
+                Logger.Log("[Warning]Accesstoken not working. Renewing");
+                HttpStatusCode statusCode = await TwitchAPI.RenewToken();
+                if (statusCode == HttpStatusCode.OK)
+                    Logger.Log("[Info]]Successfully renewed");
+                else
+                {
+                    Logger.Log("[Critical]Failed renewal. Closing program.");
+                    Environment.Exit(0);
+                }
+            }
+
+            eventSub.Subscribe.UpdateToken(TwitchAPI.AccessToken);
+            await eventSub.Subscribe.Subscribe(e.Parameters,e.TwitchCLI);
         }
 
         private static async void ReconnectionTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
             if (CheckInternetConnectivity())
             {
+                client.zombied = false;
                 Logger.Log("[Info]Internet connection is back online.");
-                OpenEventSub();
                 await client.Client.ReconnectAsync();
-                client.zombied = true;
-                reconnectionTimer.Dispose();
             }
             else
                 reconnectionTimer.Start();
@@ -142,7 +164,7 @@ namespace Schedule_Poster
             Logger.Log($"[Info]Attempting to update schedule for {group.BroadcasterID}");
             if (group.ChannelID == 0 || group.BroadcasterID == 0)
                 return false;
-            System.Threading.RateLimiting.RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync();
+            RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync();
             if (!lease.IsAcquired)
                 return false;
             StreamInformation? streamInformation = await TwitchAPI.GetStream(group.BroadcasterID.ToString());
@@ -188,11 +210,22 @@ namespace Schedule_Poster
                 Logger.Log($"[Info]Subscribing to watch {group.BroadcasterID}");
                 RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync(1);
                 bool successfulSub = false;
+                HttpStatusCode statusCode = HttpStatusCode.Processing;
                 if (lease.IsAcquired)
-                    successfulSub = eventSub.Subscribe.SubscribeToStreamOnline(group.BroadcasterID.ToString());
+                {
+                    statusCode = eventSub.Subscribe.SubscribeToStreamOnline(group.BroadcasterID.ToString());
+                    successfulSub = statusCode == HttpStatusCode.Accepted;
+                    if (statusCode == HttpStatusCode.Unauthorized)
+                        Thread.Sleep(10000);
+                }
                 lease = await TwitchAPI.rateLimiter.AcquireAsync(1);
                 if (lease.IsAcquired)
-                    successfulSub &= eventSub.Subscribe.SubscribeToStreamOffline(group.BroadcasterID.ToString());
+                {
+                    statusCode = eventSub.Subscribe.SubscribeToStreamOffline(group.BroadcasterID.ToString());
+                    successfulSub &= statusCode == HttpStatusCode.Accepted;
+                    if (statusCode == HttpStatusCode.Unauthorized)
+                        Thread.Sleep(10000);
+                }
                 if (successfulSub)
                     Logger.Log($"[Info]Successfully subbed to monitor {group.BroadcasterID}");
                 else

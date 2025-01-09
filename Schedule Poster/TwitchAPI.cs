@@ -45,6 +45,8 @@ namespace Schedule_Poster
                         if (data != null)
                         {
                             JArray? jArray = (JArray?)data["segments"];
+                            DateTimeOffset? vacationStart = (DateTimeOffset?)data?.SelectToken("vacation.start_time");
+                            DateTimeOffset? vacationEnd = (DateTimeOffset?)data?.SelectToken("vacation.end_time");
 
                             if (jArray != null)
                             {
@@ -62,8 +64,9 @@ namespace Schedule_Poster
                                             {
                                                 streams.Add(new ScheduleInformation($"Live since <t:{streamInformation.StartTime.ToUnixTimeSeconds()}:R>", "Unscheduled stream"));
                                                 timeCode = $"<t:{time.ToUnixTimeSeconds()}:F>";
-                                                string? cancelled = (string?)stream["canceled_until"];
-                                                if (cancelled != null)
+                                                if (vacationStart != null && time < vacationEnd && time > vacationStart)
+                                                    timeCode = "~~" + timeCode + "~~ (Vacation)";
+                                                else if ((string?)stream["canceled_until"] != null)
                                                     timeCode = "~~" + timeCode + "~~ (Cancelled)";
                                             }
                                             else
@@ -76,16 +79,18 @@ namespace Schedule_Poster
                                         else
                                         {
                                             timeCode = $"<t:{time.ToUnixTimeSeconds()}:F>";
-                                            string? cancelled = (string?)stream["canceled_until"];
-                                            if (cancelled != null)
+                                            if (vacationStart != null && time < vacationEnd && time > vacationStart)
+                                                timeCode = "~~" + timeCode + "~~ (Vacation)";
+                                            else if ((string?)stream["canceled_until"] != null)
                                                 timeCode = "~~" + timeCode + "~~ (Cancelled)";
                                         }
                                     }
                                     else
                                     {
                                         timeCode = $"<t:{time.ToUnixTimeSeconds()}:F>";
-                                        string? cancelled = (string?)stream["canceled_until"];
-                                        if (cancelled != null)
+                                        if (vacationStart != null && time < vacationEnd && time > vacationStart)
+                                            timeCode = "~~" + timeCode + "~~ (Vacation)";
+                                        else if ((string?)stream["canceled_until"] != null)
                                             timeCode = "~~" + timeCode + "~~ (Cancelled)";
                                     }
                                     string gameName = "Game to be announced";

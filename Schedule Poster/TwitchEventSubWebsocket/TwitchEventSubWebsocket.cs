@@ -11,6 +11,8 @@ using System.Collections.Generic;
 using Timer = System.Timers.Timer;
 using TwitchEventSubWebsocket.Types;
 using TwitchEventSubWebsocket.SubcriptionHandling;
+using Schedule_Poster.Logging;
+using System.Net.NetworkInformation;
 
 namespace TwitchEventSubWebsocket
 {
@@ -47,58 +49,61 @@ namespace TwitchEventSubWebsocket
         private List<string> MessageIDsNew = new List<string>();
         private Timer MessageTimer = new Timer() { Interval = 600000, AutoReset = true };
         private Timer ReconnectTimer = new Timer { Interval = 10000, AutoReset = true };
+        private Timer KeepAliveTimer = new Timer { Interval = 10000, AutoReset = false };
         private static readonly object MessageListLock = new object();
+        private TimeSpan KeepAliveTime = TimeSpan.FromSeconds(10);
+        private DateTimeOffset LastMessage;
 
         #region Events
         /// <summary>
         /// Fires when the websocket disconnect.
         /// </summary>
-        public event EventHandler<DisconnectionInfo> OnDisconnected;
+        public event EventHandler<DisconnectionInfo>? OnDisconnected;
 
         /// <summary>
         /// Fires when the websocket receives the Welcome message. Remember to add scopes through the API or the connection will close.
         /// </summary>
-        public event EventHandler<ConnectedEventArgs> OnConnected;
+        public event EventHandler<ConnectedEventArgs>? OnConnected;
 
         /// <summary>
         /// Fires when a subscription has been revoked.
         /// </summary>
-        public event EventHandler<RevocationEventArgs> OnRevocation;
+        public event EventHandler<RevocationEventArgs>? OnRevocation;
 
         /// <summary>
         /// Fires when a user follows a channel that is monitored.
         /// </summary>
-        public event EventHandler<ChannelFollowEventArgs> OnChannelFollow;
+        public event EventHandler<ChannelFollowEventArgs>? OnChannelFollow;
 
         /// <summary>
         /// Fires when when a raid happens, either from a channel monitored for outgoing raids or a channel monitored for incoming raids.
         /// </summary>
-        public event EventHandler<RaidEventArgs> OnRaid;
+        public event EventHandler<RaidEventArgs>? OnRaid;
 
         /// <summary>
         /// Fires when a monitored channel updates its stream information.
         /// </summary>
-        public event EventHandler<ChannelUpdateEventArgs> OnChannelUpdate;
+        public event EventHandler<ChannelUpdateEventArgs>? OnChannelUpdate;
 
         /// <summary>
         /// Fires when someone subscribes to a channel being monitored for new subscriptions. Does not fire on resubs.
         /// </summary>
-        public event EventHandler<ChannelSubscribeEventArgs> OnChannelSubscribe;
+        public event EventHandler<ChannelSubscribeEventArgs>? OnChannelSubscribe;
 
         /// <summary>
         /// Fires when a chat notification happens. There are a lot of different types of notifications that can fire this.
         /// </summary>
-        public event EventHandler<ChatNotificationsEventArgs> OnChatNotifications;
+        public event EventHandler<ChatNotificationsEventArgs>? OnChatNotifications;
 
         /// <summary>
         /// Fires when a subscribed channel starts streaming.
         /// </summary>
-        public event EventHandler<StreamOnlineEventArgs> OnStreamOnline;
+        public event EventHandler<StreamOnlineEventArgs>? OnStreamOnline;
 
         /// <summary>
         /// Fires when a subscribed channel stops streaming.
         /// </summary>
-        public event EventHandler<StreamOfflineEventArgs> OnStreamOffline;
+        public event EventHandler<StreamOfflineEventArgs>? OnStreamOffline;
 
         #endregion
 
@@ -106,21 +111,77 @@ namespace TwitchEventSubWebsocket
         {
             Subscribe = new SubscriptionHandler(clientID, accessToken);
             OriginalURI = new Uri(url);
+            CreateWebsocket();
+            MessageTimer.Elapsed += MessageTimer_Elapsed;
+            ReconnectTimer.Elapsed += ReconnectTimer_Elapsed;
+            KeepAliveTimer.Elapsed += KeepAliveTimer_Elapsed;
+            ClientID = clientID;
+            AccessToken = accessToken;
+        }
+        private void CreateWebsocket()
+        {
             EventWebsocket = new WebsocketClient(OriginalURI);
             EventWebsocket.IsReconnectionEnabled = false;
             EventWebsocket.MessageReceived.Subscribe(m => Task.Run(() => WebsocketMessageHandler(this, m)));
             EventWebsocket.DisconnectionHappened.Subscribe(e => Task.Run(() => WebsocketLostConnection(this, e)));
             Task.Run(() => Connect(OriginalURI));
-            MessageTimer.Elapsed += MessageTimer_Elapsed;
-            ReconnectTimer.Elapsed += ReconnectTimer_Elapsed;
-            ClientID = clientID;
-            AccessToken = accessToken;
+        }
+
+        public void Dispose()
+        {
+            EventWebsocket.Dispose();
+            MessageTimer.Dispose();
+            ReconnectTimer.Dispose();
+            KeepAliveTimer.Dispose();
+        }
+
+        public void Reconnect()
+        {
+            try
+            {
+                EventWebsocket.StopOrFail(WebSocketCloseStatus.EndpointUnavailable, "Went longer than the keepalive time without a message.");
+                EventWebsocket.Dispose();
+                CreateWebsocket();
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"[Debug] Failed at either stopping or connecting to Eventsocket - {ex.Message}");
+            }
+        }
+
+        static bool CheckInternetConnectivity()
+        {
+            try
+            {
+                using (var ping = new Ping())
+                {
+                    PingReply reply = ping.Send("8.8.8.8", 2000); // Google's public DNS
+                    return reply.Status == IPStatus.Success;
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         #region Timer Events
 
+        //Timer that 
+        private void KeepAliveTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (DateTimeOffset.UtcNow - LastMessage > KeepAliveTime)
+            {
+                Logger.Log($"[Debug]Keep alive timeout. {(DateTimeOffset.UtcNow - LastMessage).Seconds}");
+                MessageTimer.Stop();
+                Reconnect();
+            }
+            else
+                KeepAliveTimer.Start();
+        }
+
         //Timer to try reconnecting on failed connection.
-        private void ReconnectTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        private void ReconnectTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
             if (EventWebsocket.IsRunning)
             {
@@ -131,7 +192,7 @@ namespace TwitchEventSubWebsocket
         }
 
         //Handles the removing the storage of message ids to safeguard against replay attacks. The way it's set up message ids stay for 10-20 minutes.
-        private void MessageTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        private void MessageTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
             lock (MessageListLock)
             {
@@ -141,13 +202,13 @@ namespace TwitchEventSubWebsocket
         }
         #endregion
 
-        //Automatically reconnects the websocket if connection is lost, except if disconnected on purpose.
+        //Automatically reconnects the websocket if connection is lost.
         private void WebsocketLostConnection(object sender, DisconnectionInfo info)
         {
-            OnDisconnected?.Invoke(this, info);
+            if (info?.CloseStatusDescription != null)
+                OnDisconnected?.Invoke(this, info);
             MessageTimer.Stop();
-            if (info.Type != DisconnectionType.ByUser)
-                Connect(OriginalURI);
+            Reconnect();
         }
 
         //Prepares everything for a fresh connection and connects to the given Uri.
@@ -163,12 +224,14 @@ namespace TwitchEventSubWebsocket
         //Handles incoming messages in the websocket
         private void WebsocketMessageHandler(object sender, ResponseMessage e)
         {
+
             if (e.MessageType != WebSocketMessageType.Text)
             {
                 return;
             }
 
             ServerMessage msg = JsonConvert.DeserializeObject<ServerMessage>(e.Text);
+
 
             //This section handles the safeguarding against replay attacks.
             TimeSpan dtime = DateTime.Now - (DateTime)msg?.MetaData["message_timestamp"];
@@ -182,12 +245,19 @@ namespace TwitchEventSubWebsocket
                 MessageIDsNew.Add(messageID);
             }
 
+            //This sets the message time for keep alive.
+            DateTimeOffset messageTime = (DateTimeOffset)msg?.MetaData["message_timestamp"];
+            if (messageTime > LastMessage)
+                LastMessage = messageTime;
+
+
             switch ((string)msg.MetaData["message_type"])
             {
                 //Happens when first connecting
                 case "session_welcome":
                     {
-                        EventWebsocket.ReconnectTimeout = TimeSpan.FromSeconds((int)msg.Payload.Session["keepalive_timeout_seconds"]);
+                        KeepAliveTimer.Start();
+                        KeepAliveTime = TimeSpan.FromSeconds((int)msg.Payload.Session["keepalive_timeout_seconds"] + 5);
                         MessageTimer.Start();
                         string? tempString = (string?)msg.Payload.Session["id"];
                         if (tempString != null)

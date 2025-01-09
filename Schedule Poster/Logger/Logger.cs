@@ -51,7 +51,7 @@ namespace Schedule_Poster.Logging
             }
             foreach (Log log in sortedLogs)
             {
-                File.WriteAllText(logfile, log.message);
+                File.AppendAllText(logfile, log.message);
             }
             running = false;
         }

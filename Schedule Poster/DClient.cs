@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
+using DSharpPlus.Exceptions;
 using DSharpPlus.SlashCommands;
 using Schedule_Poster.Logging;
 
@@ -17,7 +18,11 @@ namespace Schedule_Poster
 
         public DClient()
         {
-            DiscordConfiguration config = new DiscordConfiguration() { Token = Program.Token, Intents = DiscordIntents.AllUnprivileged};
+
+            DiscordConfiguration config = new DiscordConfiguration() {
+                Token = Program.Token,
+                Intents = DiscordIntents.AllUnprivileged,
+                ReconnectIndefinitely = true};
             Client = new DiscordClient(config);
             SlashCommandsExtension slash = Client.UseSlashCommands();
             slash.RegisterCommands<SlashCommands>();
@@ -31,8 +36,9 @@ namespace Schedule_Poster
 
         private Task Client_Zombied(DiscordClient sender, DSharpPlus.EventArgs.ZombiedEventArgs args)
         {
-            if (zombied)
+            if (!zombied)
             {
+                zombied = true;
                 Logger.Log("[Critical]DSharp client zombiefied 5 times, starting reconnection timer.");
                 Program.reconnectionTimer.Start();
             }
@@ -65,24 +71,42 @@ namespace Schedule_Poster
 
         public async Task ModifyMessage(IDGroup group, string newMessage)
         {
-            DiscordChannel channel = await Client.GetChannelAsync(group.ChannelID);
+            DiscordChannel? channel;
+            try
+            {
+                channel = await Client.GetChannelAsync(group.ChannelID);
+            }
+            catch (NotFoundException)
+            {
+                Logger.Log($"[Warning]Couldn't find channel {group.ChannelID}.");
+                channel = null;
+            }
             if (channel != null)
             {
                 if (group.MessageID != 0)
                 {
-                    DiscordMessage message = await channel.GetMessageAsync(group.MessageID);
-                    if (message != null)
-                        await message.ModifyAsync(newMessage);
-                    else
+
+                    DiscordMessage message;
+                    try
                     {
+                        message = await channel.GetMessageAsync(group.MessageID);
+                        await message.ModifyAsync(newMessage);
+                    }
+                    catch (NotFoundException)
+                    {
+                        Logger.Log($"[Warning]Message {group.MessageID} not found, creating new message.");
                         message = await channel.SendMessageAsync(newMessage);
                         Program.SetMessageID(message.Id, group);
                     }
-                }
-                else
-                {
-                    DiscordMessage message = await channel.SendMessageAsync(newMessage);
-                    Program.SetMessageID(message.Id, group);
+                    catch (UnauthorizedException)
+                    {
+
+                        Logger.Log($"[Warning]Does not have permission to access messages on guild {group.GuildID}.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"An error occurred while getting message ID {group.MessageID}: {ex.Message}.");
+                    }
                 }
             }
         }
