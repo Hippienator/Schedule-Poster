@@ -10,11 +10,13 @@ namespace Schedule_Poster
     {
         public DateTimeOffset StartTime {  get; set; }
         public string? GameName { get; set; }
+        public string Title {  get; set; }
 
-        public StreamInformation(DateTimeOffset startTime, string? gameName)
+        public StreamInformation(DateTimeOffset startTime, string? gameName, string title)
         {
             StartTime = startTime;
             GameName = gameName;
+            Title = title;
         }
     }
 }

@@ -192,7 +192,8 @@ namespace Schedule_Poster
                     {
                         DateTimeOffset time = (DateTimeOffset)jObject["started_at"];
                         string game = (string)jObject["game_name"];
-                        return new StreamInformation(time, game);
+                        string title = (string)jObject["title"];
+                        return new StreamInformation(time, game, title ?? "No title");
                     }
                     return null;
                 }

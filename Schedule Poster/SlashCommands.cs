@@ -1,5 +1,6 @@
 ﻿using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
+using DSharpPlus;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +8,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using System.Xml.Linq;
 
 namespace Schedule_Poster
 {
@@ -32,7 +34,7 @@ namespace Schedule_Poster
             }
         }
 
-        [SlashCommand("UpdateSchedule","Updates the schedule.", false)]
+        [SlashCommand("UpdateSchedule", "Updates the schedule.", false)]
         public async Task DoTask(InteractionContext ctx)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
@@ -43,7 +45,7 @@ namespace Schedule_Poster
                 return;
             }
             bool success = await Program.DoSchedule(group);
-            
+
             if (success)
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Schedule updated."));
             else
@@ -100,7 +102,7 @@ namespace Schedule_Poster
         }
 
         [SlashCommand("ShownStreams", "Sets the amount of streams to be shown from the schedule.", false)]
-        public async Task SetNumberOfStreams(InteractionContext ctx, [Option("number","The number of streams to be shown from the schedule. Maximum of 24.")] long number)
+        public async Task SetNumberOfStreams(InteractionContext ctx, [Option("number", "The number of streams to be shown from the schedule. Maximum of 24.")] long number)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
@@ -141,6 +143,123 @@ namespace Schedule_Poster
                     Program.eventSub.Subscribe.SubscribeToStreamOnline(id.Value.ToString());
                 Program.SaveIDs();
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"This server will now display the schedule of the Twitch user {name}"));
+            }
+        }
+
+        [SlashCommand("SetOnlinePingChannel", "Sets the channel that the bot will put a message in when the schedule streamer goes live.", false)]
+        public async Task SetOnlinePingChannel(InteractionContext ctx, [Option("channel", "The channel the message goes in. Defaults to the channel it's written in.")] DiscordChannel? channel = null)
+        {
+            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+            IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
+            if (group == null)
+            {
+                group = new IDGroup(ctx.Guild.Id);
+                Program.Groups.Add(group);
+            }
+
+            if (channel == null) 
+                channel = ctx.Channel;
+
+            DiscordMember botMember = await ctx.Channel.Guild.GetMemberAsync(Program.client.Client.CurrentUser.Id);
+            Permissions botPerms = channel.PermissionsFor(botMember);
+            if (!botPerms.HasPermission(Permissions.SendMessages))
+            {
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"The bot does not have permissions to send messages in {channel.Mention}."));
+                return;
+            }
+            group.OnlinePingChannelID = channel.Id;
+
+            await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Channel for going online messages set to {channel.Mention}"));
+        }
+
+        [SlashCommand("SetOnlinePingRole", "Sets which role to ping when streamer is going online", false)]
+        public async Task SetOnlinePingRole(InteractionContext ctx, [Option("role", "The role that will be pinged.")] DiscordRole role)
+        {
+            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+            IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
+            if (group == null)
+            {
+                group = new IDGroup(ctx.Guild.Id);
+                Program.Groups.Add(group);
+            }
+
+            group.OnlinePingRoleID = role.Id;
+            await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"The role that will be pinged is now set to {role.Name}."));
+        }
+
+        [SlashCommand("SetOnlinePingMessage", "Sets the message that will be shown when the streamer goes online.", false)]
+        public async Task SetOnlinePingMessage(InteractionContext ctx, [Option("message","The message that will be sent when the streamer goes online. {game} will be replaced with the game, {title} will be replaced with stream title and {ping} will be replaced with a role ping.")] string message)
+        {
+            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+            IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
+            if (group == null)
+            {
+                group = new IDGroup(ctx.Guild.Id);
+                Program.Groups.Add(group);
+            }
+
+            group.OnlinePingMessage = message;
+            string reply = "Message text has been updated.";
+            if (reply.Contains("{ping}") && group.OnlinePingRoleID == null)
+                reply += " There is no role selected to ping, but {ping} is in the text. The bot will not send the message until a role is selected with /SetOnlinePingRole .";
+            await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent(reply));
+        }
+
+        [SlashCommand("SetOnlinePingEnabled", "Sets whether to send a ping when the schedule streamer goes online.",false)]
+        public async Task SetOnlinePingEnabled(InteractionContext ctx, [Option("enable", "Set to true to enable the bot to ping when schedule streamer goes online, set to false to disable it.")] bool enable)
+        {
+            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+            IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
+            if (group == null)
+            {
+                group = new IDGroup(ctx.Guild.Id);
+                Program.Groups.Add(group);
+            }
+
+            if (enable)
+            {
+                if (group.OnlinePingEnabled)
+                {
+                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Pinging when the streamer goes online is already enabled."));
+                    return;
+                }
+
+                bool failed = false;
+                string failMessage = "Please use the command ";
+                if (group.OnlinePingMessage == null)
+                {
+                    failed = true;
+                    failMessage += "SetOnlinePingMessage ";
+                }
+                if (group.OnlinePingChannelID == null)
+                {
+                    if (failed)
+                        failMessage += "and ";
+                    failed = true;
+                    failMessage += "SetOnlinePingChannel ";
+                }
+
+                if (failed)
+                {
+                    failMessage += "before enabling this function.";
+                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent(failMessage));
+                }
+                else
+                {
+                    group.OnlinePingEnabled = enable;
+                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Pinging when the streamer goes online disabled."));
+                }
+
+            }
+            else
+            {
+                if (!group.OnlinePingEnabled)
+                {
+                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Pinging when the streamer goes online is already disabled."));
+                    return;
+                }
+                group.OnlinePingEnabled = enable;
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Pinging when the streamer goes online disabled."));
             }
         }
     }

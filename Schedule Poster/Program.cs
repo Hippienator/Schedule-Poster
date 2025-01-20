@@ -8,6 +8,8 @@ using TwitchEventSubWebsocket;
 using Schedule_Poster.Logging;
 using Websocket.Client;
 using System.Net.NetworkInformation;
+using DSharpPlus.Entities;
+using DSharpPlus.Exceptions;
 
 namespace Schedule_Poster
 {
@@ -199,7 +201,59 @@ namespace Schedule_Poster
             Logger.Log($"[Info]Streamer {e.Broadcaster.Displayname} started streaming.");
             IDGroup? group = Groups.Find(x => x.BroadcasterID.ToString() == e.Broadcaster.ID);
             if (group != null)
+            {
                 await DoSchedule(group);
+                if (group.OnlinePingEnabled)
+                    await GoingOnlineMessage(group);
+            }
+        }
+
+        public static async Task GoingOnlineMessage(IDGroup group)
+        {
+            if (group.OnlinePingChannelID == null || group.OnlinePingMessage == null)
+            {
+                
+                return;
+            }
+
+            DiscordChannel channel;
+            try
+            {
+                channel = await client.Client.GetChannelAsync(group.OnlinePingChannelID.Value);
+            }
+            catch (NotFoundException)
+            {
+                return;
+            }
+
+            string toSend = group.OnlinePingMessage; 
+            if (group.OnlinePingMessage.Contains("{role}") && group.OnlinePingRoleID!= null)
+            {
+                DiscordGuild guild = await client.Client.GetGuildAsync(group.GuildID);
+                DiscordRole role = guild.GetRole(group.OnlinePingRoleID.Value);
+                toSend = toSend.Replace("{role}", role.Mention);
+            }
+
+            if (toSend.Contains("{title}") || toSend.Contains("{game}"))
+            {
+                RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync(1);
+                if (!lease.IsAcquired)
+                {
+
+                    return;
+                }
+                StreamInformation? stream = await TwitchAPI.GetStream(group.BroadcasterID.ToString());
+                if (stream == null)
+                {
+
+                    return;
+                }
+
+                toSend = toSend.Replace("{title}", stream.Title);
+                toSend = toSend.Replace("{game}", stream.GameName);
+            }
+
+            await client.Client.SendMessageAsync(channel, toSend);
         }
 
         private static async void EventSub_OnConnected(object? sender, TwitchEventSubWebsocket.Types.Event.ConnectedEventArgs e)
@@ -208,9 +262,9 @@ namespace Schedule_Poster
             foreach (IDGroup group in Groups)
             {
                 Logger.Log($"[Info]Subscribing to watch {group.BroadcasterID}");
-                RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync(1);
                 bool successfulSub = false;
                 HttpStatusCode statusCode = HttpStatusCode.Processing;
+                RateLimitLease lease = await TwitchAPI.rateLimiter.AcquireAsync(1);
                 if (lease.IsAcquired)
                 {
                     statusCode = eventSub.Subscribe.SubscribeToStreamOnline(group.BroadcasterID.ToString());
