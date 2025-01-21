@@ -12,7 +12,7 @@ using System.Xml.Linq;
 
 namespace Schedule_Poster
 {
-    internal class SlashCommands : ApplicationCommandModule
+    public class SlashCommands : ApplicationCommandModule
     {
         [SlashCommand("BugReport", "Sends a bug report.", false)]
         public async Task BugReport(InteractionContext ctx, [Option("contact-allowed", "Sets whether I'm allowed to contact you for further information. True for yes, False for no.")] bool contactAllowed, [Option("text", "The text of the bug report")] string text)
@@ -145,9 +145,14 @@ namespace Schedule_Poster
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"This server will now display the schedule of the Twitch user {name}"));
             }
         }
+    }
 
-        [SlashCommand("SetOnlinePingChannel", "Sets the channel that the bot will put a message in when the schedule streamer goes live.", false)]
-        public async Task SetOnlinePingChannel(InteractionContext ctx, [Option("channel", "The channel the message goes in. Defaults to the channel it's written in.")] DiscordChannel? channel = null)
+    [SlashCommandGroup("SetOnlinePing", "These commands are for setting up doing pings when the streamer goes online")]
+    public class SetOnlinePing : ApplicationCommandModule
+    {
+
+        [SlashCommand("Channel", "Sets the channel that the bot will put a message in when the schedule streamer goes live.", false)]
+        public async Task SetOnlinePingChannel(InteractionContext ctx, [Option("channel", "The channel the message goes in. Defaults to the channel it's written in.")] DiscordChannel channel = null)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
@@ -157,7 +162,7 @@ namespace Schedule_Poster
                 Program.Groups.Add(group);
             }
 
-            if (channel == null) 
+            if (channel == null)
                 channel = ctx.Channel;
 
             DiscordMember botMember = await ctx.Channel.Guild.GetMemberAsync(Program.client.Client.CurrentUser.Id);
@@ -168,11 +173,12 @@ namespace Schedule_Poster
                 return;
             }
             group.OnlinePingChannelID = channel.Id;
+            Program.SaveIDs();
 
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Channel for going online messages set to {channel.Mention}"));
         }
 
-        [SlashCommand("SetOnlinePingRole", "Sets which role to ping when streamer is going online", false)]
+        [SlashCommand("Role", "Sets which role to ping when streamer is going online", false)]
         public async Task SetOnlinePingRole(InteractionContext ctx, [Option("role", "The role that will be pinged.")] DiscordRole role)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
@@ -184,11 +190,12 @@ namespace Schedule_Poster
             }
 
             group.OnlinePingRoleID = role.Id;
+            Program.SaveIDs();
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"The role that will be pinged is now set to {role.Name}."));
         }
 
-        [SlashCommand("SetOnlinePingMessage", "Sets the message that will be shown when the streamer goes online.", false)]
-        public async Task SetOnlinePingMessage(InteractionContext ctx, [Option("message","The message that will be sent when the streamer goes online. {game} will be replaced with the game, {title} will be replaced with stream title and {ping} will be replaced with a role ping.")] string message)
+        [SlashCommand("Message", "Sets the message that will be shown when the streamer goes online.", false)]
+        public async Task SetOnlinePingMessage(InteractionContext ctx, [Option("message", "The message that will be sent when the streamer goes online.")] string message)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
@@ -199,14 +206,16 @@ namespace Schedule_Poster
             }
 
             group.OnlinePingMessage = message;
+            Program.SaveIDs();
+
             string reply = "Message text has been updated.";
-            if (reply.Contains("{ping}") && group.OnlinePingRoleID == null)
-                reply += " There is no role selected to ping, but {ping} is in the text. The bot will not send the message until a role is selected with /SetOnlinePingRole .";
+            if (message.Contains("{ping}") && group.OnlinePingRoleID == null)
+                reply += " There is no role selected to ping, but {ping} is in the text. The bot will not send the message until a role is selected with /SetOnlinePing Role .";
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent(reply));
         }
-
-        [SlashCommand("SetOnlinePingEnabled", "Sets whether to send a ping when the schedule streamer goes online.",false)]
-        public async Task SetOnlinePingEnabled(InteractionContext ctx, [Option("enable", "Set to true to enable the bot to ping when schedule streamer goes online, set to false to disable it.")] bool enable)
+        
+        [SlashCommand("Enabled", "Sets whether to send a ping when the schedule streamer goes online.", false)]
+        public async Task SetOnlinePingEnabled(InteractionContext ctx, [Option("enable", "Set to true to enable the bot to ping when schedule streamer goes online, set to false to disable it")] bool enable)
         {
             await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
             IDGroup? group = Program.Groups.Find(x => x.GuildID == ctx.Guild.Id);
@@ -229,14 +238,14 @@ namespace Schedule_Poster
                 if (group.OnlinePingMessage == null)
                 {
                     failed = true;
-                    failMessage += "SetOnlinePingMessage ";
+                    failMessage += "/SetOnlinePing Message ";
                 }
                 if (group.OnlinePingChannelID == null)
                 {
                     if (failed)
                         failMessage += "and ";
                     failed = true;
-                    failMessage += "SetOnlinePingChannel ";
+                    failMessage += "/SetOnlinePing Channel ";
                 }
 
                 if (failed)
@@ -247,7 +256,8 @@ namespace Schedule_Poster
                 else
                 {
                     group.OnlinePingEnabled = enable;
-                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Pinging when the streamer goes online disabled."));
+                    Program.SaveIDs();
+                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Pinging when the streamer goes online enabled."));
                 }
 
             }
@@ -259,6 +269,7 @@ namespace Schedule_Poster
                     return;
                 }
                 group.OnlinePingEnabled = enable;
+                Program.SaveIDs();
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"Pinging when the streamer goes online disabled."));
             }
         }

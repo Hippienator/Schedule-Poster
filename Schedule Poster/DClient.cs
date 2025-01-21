@@ -26,6 +26,7 @@ namespace Schedule_Poster
             Client = new DiscordClient(config);
             SlashCommandsExtension slash = Client.UseSlashCommands();
             slash.RegisterCommands<SlashCommands>();
+            slash.RegisterCommands<SetOnlinePing>(Program.mainID.GuildID);
             slash.RegisterCommands<AdminCommands>(Program.mainID.GuildID);
             Client.SocketClosed += Client_SocketClosed;
             Client.SocketErrored += Client_SocketErrored;

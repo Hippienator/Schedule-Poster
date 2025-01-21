@@ -202,7 +202,8 @@ namespace Schedule_Poster
             IDGroup? group = Groups.Find(x => x.BroadcasterID.ToString() == e.Broadcaster.ID);
             if (group != null)
             {
-                await DoSchedule(group);
+                bool success = await DoSchedule(group);
+                Logger.Log($"[Info]Updating schedule for streamer {group.BroadcasterID} was succesful? {success}");
                 if (group.OnlinePingEnabled)
                     await GoingOnlineMessage(group);
             }
