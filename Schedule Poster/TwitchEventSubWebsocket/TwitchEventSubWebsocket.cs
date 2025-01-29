@@ -140,6 +140,7 @@ namespace TwitchEventSubWebsocket
             try
             {
                 EventWebsocket.StopOrFail(WebSocketCloseStatus.EndpointUnavailable, "Went longer than the keepalive time without a message.");
+                Thread.Sleep(1000);
                 EventWebsocket.Dispose();
                 CreateWebsocket();
             }
@@ -172,7 +173,6 @@ namespace TwitchEventSubWebsocket
         {
             if (DateTimeOffset.UtcNow - LastMessage > KeepAliveTime)
             {
-                Logger.Log($"[Debug]Keep alive timeout. {(DateTimeOffset.UtcNow - LastMessage).Seconds}");
                 MessageTimer.Stop();
                 Reconnect();
             }

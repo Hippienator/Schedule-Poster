@@ -35,6 +35,11 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
             AccessToken = accessToken;
         }
 
+        public void UpdateClient(string clientID)
+        {
+            ClientID = clientID;
+        }
+
         public async Task<HttpStatusCode> Subscribe(string paramters, bool TwitchCLI)
         {
             using (HttpClient client = new HttpClient())

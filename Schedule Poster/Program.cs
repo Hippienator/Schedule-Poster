@@ -77,7 +77,10 @@ namespace Schedule_Poster
 
         private static async void Subscribe_OnAuthorizationFailed(object? sender, TwitchEventSubWebsocket.SubcriptionHandling.AuthorizationFailedEventArgs e)
         {
-            Logger.Log("[Warning]EventSub's subscription handler had an unauthorized reply.");
+            Logger.Log("[Warning]EventSub's subscription handler had an unauthorized reply. Reloading saved data.");
+
+            SaveLoadHandling.AccountHandling.StartUp();
+
             HttpResponseMessage validation = await TwitchAPI.ValidateToken();
             if (validation.IsSuccessStatusCode)
                 Logger.Log("[Info]Accesstoken validated");
@@ -95,6 +98,7 @@ namespace Schedule_Poster
             }
 
             eventSub.Subscribe.UpdateToken(TwitchAPI.AccessToken);
+            eventSub.Subscribe.UpdateClient(TwitchAPI.ClientID);
             await eventSub.Subscribe.Subscribe(e.Parameters,e.TwitchCLI);
         }
 

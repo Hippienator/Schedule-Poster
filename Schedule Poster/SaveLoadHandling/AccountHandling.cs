@@ -23,8 +23,8 @@ namespace Schedule_Poster.SaveLoadHandling
 
         public static void SaveTokens()
         {
-            string toEncrypt = Program.Token + ";" + TwitchAPI.ClientID + ";" + TwitchAPI.ClientSecret;
-            EncryptFile(constantsFile, toEncrypt);
+            string toEncrypt = TwitchAPI.AccessToken + ";" + TwitchAPI.RefreshToken;
+            EncryptFile(tokensFile, toEncrypt);
         }
 
         private static void GetTokens()
