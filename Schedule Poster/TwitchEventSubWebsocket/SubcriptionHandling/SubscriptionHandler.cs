@@ -1,15 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using Newtonsoft.Json;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-using Newtonsoft.Json;
-using Schedule_Poster;
 
 
 namespace TwitchEventSubWebsocket.SubcriptionHandling
@@ -55,12 +47,16 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
                 else
                     setSubscriptionUrl = "https://api.twitch.tv/helix/eventsub/subscriptions";
 
+                Schedule_Poster.Logging.Logger.Log($"[Debug]Parameters are: {paramters}");
+
                 var response = await client.PostAsync(setSubscriptionUrl, new StringContent(paramters, Encoding.UTF8, "application/json"));
 
                 if (response.StatusCode == HttpStatusCode.Unauthorized)
                 {
                     OnAuthorizationFailed?.Invoke(this, new AuthorizationFailedEventArgs(paramters, TwitchCLI));
                 }
+
+                Schedule_Poster.Logging.Logger.Log($"Response message: {await response.Content.ReadAsStringAsync()}");
 
                 return response.StatusCode;
             }

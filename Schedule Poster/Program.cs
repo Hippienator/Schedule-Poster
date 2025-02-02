@@ -273,6 +273,7 @@ namespace Schedule_Poster
                 if (lease.IsAcquired)
                 {
                     statusCode = eventSub.Subscribe.SubscribeToStreamOnline(group.BroadcasterID.ToString());
+                    Logger.Log($"[Debug]Subscribing gave statuscode: {statusCode}");
                     successfulSub = statusCode == HttpStatusCode.Accepted;
                     if (statusCode == HttpStatusCode.Unauthorized)
                         Thread.Sleep(10000);
@@ -281,6 +282,7 @@ namespace Schedule_Poster
                 if (lease.IsAcquired)
                 {
                     statusCode = eventSub.Subscribe.SubscribeToStreamOffline(group.BroadcasterID.ToString());
+                    Logger.Log($"[Debug]Subscribing gave statuscode: {statusCode}");
                     successfulSub &= statusCode == HttpStatusCode.Accepted;
                     if (statusCode == HttpStatusCode.Unauthorized)
                         Thread.Sleep(10000);
