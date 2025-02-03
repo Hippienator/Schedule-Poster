@@ -47,8 +47,6 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
                 else
                     setSubscriptionUrl = "https://api.twitch.tv/helix/eventsub/subscriptions";
 
-                Schedule_Poster.Logging.Logger.Log($"[Debug]Parameters are: {paramters}");
-
                 var response = await client.PostAsync(setSubscriptionUrl, new StringContent(paramters, Encoding.UTF8, "application/json"));
 
                 if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -56,7 +54,8 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
                     OnAuthorizationFailed?.Invoke(this, new AuthorizationFailedEventArgs(paramters, TwitchCLI));
                 }
 
-                Schedule_Poster.Logging.Logger.Log($"Response message: {await response.Content.ReadAsStringAsync()}");
+                string responseContent = await response.Content.ReadAsStringAsync();
+                Schedule_Poster.Logging.Logger.Log($"[Debug] Response: {responseContent}");
 
                 return response.StatusCode;
             }

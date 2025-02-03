@@ -11,7 +11,6 @@ using System.Collections.Generic;
 using Timer = System.Timers.Timer;
 using TwitchEventSubWebsocket.Types;
 using TwitchEventSubWebsocket.SubcriptionHandling;
-using Schedule_Poster.Logging;
 using System.Net.NetworkInformation;
 
 namespace TwitchEventSubWebsocket
@@ -146,7 +145,6 @@ namespace TwitchEventSubWebsocket
             }
             catch (Exception ex)
             {
-                Logger.Log($"[Debug] Failed at either stopping or connecting to Eventsocket - {ex.Message}");
             }
         }
 

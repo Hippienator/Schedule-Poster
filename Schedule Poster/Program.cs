@@ -27,6 +27,7 @@ namespace Schedule_Poster
         static async Task Main(string[] args)
         {
             Logger.Initialize();
+            Environment.SetEnvironmentVariable("DOTNET_SYSTEM_NET_HTTP_USEIPV6", "0", EnvironmentVariableTarget.Process);
             TwitchAPI.lastRenewed = DateTime.Now.AddMinutes(-2);
             GetIDs();
             SaveLoadHandling.AccountHandling.StartUp();
@@ -264,6 +265,7 @@ namespace Schedule_Poster
         private static async void EventSub_OnConnected(object? sender, TwitchEventSubWebsocket.Types.Event.ConnectedEventArgs e)
         {
             Logger.Log($"[Info]Connected to Eventsub. Websocket ID: {e.ID}.");
+            
             foreach (IDGroup group in Groups)
             {
                 Logger.Log($"[Info]Subscribing to watch {group.BroadcasterID}");
