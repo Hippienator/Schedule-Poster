@@ -27,7 +27,6 @@ namespace Schedule_Poster
         static async Task Main(string[] args)
         {
             Logger.Initialize();
-            Environment.SetEnvironmentVariable("DOTNET_SYSTEM_NET_HTTP_USEIPV6", "0", EnvironmentVariableTarget.Process);
             TwitchAPI.lastRenewed = DateTime.Now.AddMinutes(-2);
             GetIDs();
             SaveLoadHandling.AccountHandling.StartUp();
