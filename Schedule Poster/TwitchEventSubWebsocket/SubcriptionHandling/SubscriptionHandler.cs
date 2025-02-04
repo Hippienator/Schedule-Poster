@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -36,7 +37,6 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
         {
             using (HttpClient client = new HttpClient())
             {
-
                 client.DefaultRequestHeaders.Add("Client-ID", ClientID);
                 client.DefaultRequestHeaders.Add("Authorization", $"Bearer {AccessToken}");
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -53,9 +53,6 @@ namespace TwitchEventSubWebsocket.SubcriptionHandling
                 {
                     OnAuthorizationFailed?.Invoke(this, new AuthorizationFailedEventArgs(paramters, TwitchCLI));
                 }
-
-                string responseContent = await response.Content.ReadAsStringAsync();
-                Schedule_Poster.Logging.Logger.Log($"[Debug] Response: {responseContent}");
 
                 return response.StatusCode;
             }

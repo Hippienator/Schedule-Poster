@@ -49,6 +49,7 @@ namespace TwitchEventSubWebsocket
         private Timer MessageTimer = new Timer() { Interval = 600000, AutoReset = true };
         private Timer ReconnectTimer = new Timer { Interval = 10000, AutoReset = true };
         private Timer KeepAliveTimer = new Timer { Interval = 10000, AutoReset = false };
+        private Timer AttemptReconnectTimer = new Timer { Interval = 2000, AutoReset = false };
         private static readonly object MessageListLock = new object();
         private TimeSpan KeepAliveTime = TimeSpan.FromSeconds(10);
         private DateTimeOffset LastMessage;
@@ -114,9 +115,12 @@ namespace TwitchEventSubWebsocket
             MessageTimer.Elapsed += MessageTimer_Elapsed;
             ReconnectTimer.Elapsed += ReconnectTimer_Elapsed;
             KeepAliveTimer.Elapsed += KeepAliveTimer_Elapsed;
+            AttemptReconnectTimer.Elapsed += AttemptReconnectTimer_Elapsed;
             ClientID = clientID;
             AccessToken = accessToken;
         }
+
+
         private void CreateWebsocket()
         {
             EventWebsocket = new WebsocketClient(OriginalURI);
@@ -132,6 +136,7 @@ namespace TwitchEventSubWebsocket
             MessageTimer.Dispose();
             ReconnectTimer.Dispose();
             KeepAliveTimer.Dispose();
+            AttemptReconnectTimer.Dispose();
         }
 
         public void Reconnect()
@@ -178,6 +183,13 @@ namespace TwitchEventSubWebsocket
                 KeepAliveTimer.Start();
         }
 
+        //Timer for when to block several connection lost messages
+        private void AttemptReconnectTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+        {
+            if(!EventWebsocket.IsRunning && !ReconnectTimer.Enabled)
+                Connect(OriginalURI);
+        }
+
         //Timer to try reconnecting on failed connection.
         private void ReconnectTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
@@ -205,8 +217,11 @@ namespace TwitchEventSubWebsocket
         {
             if (info?.CloseStatusDescription != null)
                 OnDisconnected?.Invoke(this, info);
-            MessageTimer.Stop();
-            Reconnect();
+            if (!AttemptReconnectTimer.Enabled && !EventWebsocket.IsRunning) 
+            {
+                MessageTimer.Stop();
+                AttemptReconnectTimer.Start();
+            }
         }
 
         //Prepares everything for a fresh connection and connects to the given Uri.
