@@ -105,6 +105,11 @@ namespace TwitchEventSubWebsocket
         /// </summary>
         public event EventHandler<StreamOfflineEventArgs>? OnStreamOffline;
 
+        /// <summary>
+        /// Fires when a subscribed channel has a custom channel point reward redeemed.
+        /// </summary>
+        public event EventHandler<ChannelPointsCustomRewardsRedemptionAddEventArgs>? OnChannelPointsCustomRewardsRedemptionAdd;
+
         #endregion
 
         public EventSubWebsocket(string url, string clientID = "", string accessToken = "")
@@ -150,22 +155,6 @@ namespace TwitchEventSubWebsocket
             }
             catch (Exception ex)
             {
-            }
-        }
-
-        static bool CheckInternetConnectivity()
-        {
-            try
-            {
-                using (var ping = new Ping())
-                {
-                    PingReply reply = ping.Send("8.8.8.8", 2000); // Google's public DNS
-                    return reply.Status == IPStatus.Success;
-                }
-            }
-            catch
-            {
-                return false;
             }
         }
 
@@ -313,10 +302,27 @@ namespace TwitchEventSubWebsocket
         {
             switch (notifType)
             {
+                case "channel.channel_points_custom_reward_redemption.add":
+                    {
+                        User broadcaster = new User((string)args["broadcaster_user_id"], (string)args["broadcaster_user_login"], (string)args["broadcaster_user_name"]);
+                        User user = new User((string)args["user_id"], (string)args["user_login"], (string)args["user_name"]);
+                        JObject jReward = (JObject)args["reward"];
+                        Reward reward = new Reward((string)jReward["id"], (string)jReward["title"], (int)jReward["cost"], (string)jReward["prompt"]);
+                        OnChannelPointsCustomRewardsRedemptionAdd?.Invoke(this, new ChannelPointsCustomRewardsRedemptionAddEventArgs((string)args["id"], broadcaster, user,
+                            (string)args["user_input"], (string)args["status"], reward, (DateTime)args["redeemed_at"]));
+                        break;
+                    }
+
                 case "channel.follow":
                     {
                         OnChannelFollow?.Invoke(this, new ChannelFollowEventArgs((string)args["user_id"], (string)args["user_login"], (string)args["user_name"],
                             (string)args["broadcaster_user_id"], (string)args["broadcaster_user_login"], (string)args["broadcaster_user_name"], (DateTime)args["followed_at"]));
+                        break;
+                    }
+
+                case "channel.chat.notification":
+                    {
+                        ChatNotificationHandler(args);
                         break;
                     }
 
@@ -328,14 +334,6 @@ namespace TwitchEventSubWebsocket
                         break;
                     }
 
-                case "channel.update":
-                    {
-                        User broadcaster = new User((string)args["broadcaster_user_id"], (string)args["broadcaster_user_login"], (string)args["broadcaster_user_name"]);
-                        OnChannelUpdate?.Invoke(this, new ChannelUpdateEventArgs(broadcaster, (string)args["title"], (string)args["language"], (string)args["category_id"],
-                            (string)args["category_name"], args["content_classification_labels"]?.ToObject<string[]>()));
-                        break;
-                    }
-
                 case "channel.subscribe":
                     {
                         User user = new User((string)args["user_id"], (string)args["user_login"], (string)args["user_name"]);
@@ -344,9 +342,11 @@ namespace TwitchEventSubWebsocket
                         break;
                     }
 
-                case "channel.chat.notification":
+                case "channel.update":
                     {
-                        ChatNotificationHandler(args);
+                        User broadcaster = new User((string)args["broadcaster_user_id"], (string)args["broadcaster_user_login"], (string)args["broadcaster_user_name"]);
+                        OnChannelUpdate?.Invoke(this, new ChannelUpdateEventArgs(broadcaster, (string)args["title"], (string)args["language"], (string)args["category_id"],
+                            (string)args["category_name"], args["content_classification_labels"]?.ToObject<string[]>()));
                         break;
                     }
 
